@@ -2,7 +2,7 @@
 PACKAGES?=base vim sudo git tmux
 PACMAN_FLAGS?=--noconfirm --needed
 USERS?=fauno matus
-PACKAGES?=rsync git make ruby
+PACKAGES?=rsync git make ruby find
 
 $(patsubst %,/usr/bin/%,$(PACKAGES)):
 	pacman -Sy $(PACMAN_FLAGS) $@
@@ -42,6 +42,15 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 # Crea todos los usuarios
 users: PHONY $(USERS)
 
+# Configura nginx
+/etc/nginx/nginx.conf: /usr/bin/git /usr/bin/find
+	pacman -Sy $(PACMAN_FLAGS) nginx-passenger
+	rm -r /etc/nginx
+	cd /etc && git clone https://github.com/fauno/nginx-config nginx
+	rm -v /etc/nginx/sites/*.conf
+	chown -R root:root /etc/nginx
+	find /etc/nginx -type d -exec chmod 750 {} \;
+	find /etc/nginx -type f -exec chmod 640 {} \;
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 PHONY:
