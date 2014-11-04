@@ -2,7 +2,23 @@ HOSTNAME=printdustry.com
 
 PACMAN_FLAGS?=--noconfirm --needed
 USERS?=fauno matus
-PACKAGES?=rsync git make ruby find postfix sed
+PACKAGES?=rsync git make ruby find postfix sed etckeeper
+
+# Reglas generales
+
+## Crea todos los usuarios
+users: PHONY $(USERS)
+
+## Actualiza el sistema
+upgrade: /usr/bin/etckeeper
+	cd /etc && test -d .git || etckeeper init
+	cd /etc && etckeeper commit "pre-upgrade $(shell date)"
+	pacman -Syu $(PACMAN_FLAGS)
+
+## Instala el servidor de correo
+mail-server: /etc/postfix/main.cf
+
+# ---
 
 # Setear el hostname
 /etc/hostname:
@@ -47,9 +63,6 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	echo "$@:cambiame" | chpasswd
 # Seguridad
 	cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
-
-# Crea todos los usuarios
-users: PHONY $(USERS)
 
 # Configura nginx
 /etc/nginx/nginx.conf: /usr/bin/git /usr/bin/find
