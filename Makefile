@@ -92,11 +92,14 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	cd /etc && cp ssl~~/certs/* ssl/certs/ || true
 	cd /etc && cp ssl~~/private/* ssl/private/ || true
 	rm -rf /etc/ssl~~
+	chmod 755 /etc/ssl
+	cd /etc/ssl && make ssl-dirs
+	cd /etc/ssl && make create-groups GROUP=personas
+	cd /etc/ssl && make ssl-dh-params
 
 # Genera el certificado auto-firmado para este host
 /etc/ssl/certs/$(HOSTNAME).crt: /etc/ssl/Makefile
 	cd /etc/ssl && echo "$(HOSTNAME)" >domains
-	cd /etc/ssl && make create-groups GROUP=personas
 	cd /etc/ssl && make ssl-private-keys
 	cd /etc/ssl && make ssl-self-signed-certs
 
