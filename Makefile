@@ -1,7 +1,7 @@
 HOSTNAME=printdustry.com
 
 PACMAN_FLAGS?=--noconfirm --needed
-USERS?=fauno matus
+USERS?=fauno matus mauricio
 PACKAGES?=rsync git make ruby find postfix sed etckeeper
 
 # Reglas generales
@@ -45,7 +45,7 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 
 # Carga un skel más seguro
 /etc/skel/.ssh/authorized_keys: /root/Repos /usr/bin/rsync /usr/bin/make /usr/bin/git
-	cd /root/Repos && git clone --branch=develop https://github.com/fauno/duraskel
+	cd /root/Repos && test -d duraskel/.git || git clone --branch=develop https://github.com/fauno/duraskel
 	cd /root/Repos/duraskel && make install
 
 # Paraboliza la instalación
