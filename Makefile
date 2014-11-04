@@ -33,10 +33,12 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)):
 	pacman -S $(PACMAN_FLAGS) your-freedom
 	date +%s >/etc/parabolized
 
-# Crear los usuarios y les da acceso
+# Crea los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
 	getent passwd $@ || useradd -m -g users -G wheel $@
+# Inseguridad
 	echo "$@:cambiame" | chpasswd
+# Seguridad
 	cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
 
 # Crea todos los usuarios
@@ -48,6 +50,7 @@ users: PHONY $(USERS)
 	rm -r /etc/nginx
 	cd /etc && git clone https://github.com/fauno/nginx-config nginx
 	rm -v /etc/nginx/sites/*.conf
+# Seguridad
 	chown -R root:root /etc/nginx
 	find /etc/nginx -type d -exec chmod 750 {} \;
 	find /etc/nginx -type f -exec chmod 640 {} \;
