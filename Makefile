@@ -10,17 +10,17 @@ PACKAGES?=rsync git make ruby find postfix sed etckeeper
 users: PHONY $(USERS)
 
 ## Actualiza el sistema
-upgrade: /usr/bin/etckeeper
+upgrade: PHONY /usr/bin/etckeeper
 	cd /etc && test -d .git || etckeeper init
 	cd /etc && etckeeper commit "pre-upgrade"
 	pacman -Syu $(PACMAN_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: /etc/postfix/main.cf
+mail-server: PHONY /etc/postfix/main.cf
 
 ## Actualizar pacnew
 # FIXME se rompe la salida de la terminal y hay que resetear
-pacnew:
+pacnew: PHONY 
 	find /etc -name '*.pacnew' | while read f; do \
 		vimdiff "$${f%%.pacnew}" "$$f" ;\
 		rm -f "$$f" ;\
