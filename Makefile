@@ -18,6 +18,14 @@ upgrade: /usr/bin/etckeeper
 ## Instala el servidor de correo
 mail-server: /etc/postfix/main.cf
 
+## Actualizar pacnew
+# FIXME se rompe la salida de la terminal y hay que resetear
+pacnew:
+	find /etc -name '*.pacnew' | while read f; do \
+		vimdiff "$${f%%.pacnew}" "$$f" ;\
+		rm -f "$$f" ;\
+	done
+
 # ---
 
 # Setear el hostname
