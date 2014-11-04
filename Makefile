@@ -12,7 +12,7 @@ users: PHONY $(USERS)
 ## Actualiza el sistema
 upgrade: /usr/bin/etckeeper
 	cd /etc && test -d .git || etckeeper init
-	cd /etc && etckeeper commit "pre-upgrade $(shell date)"
+	cd /etc && etckeeper commit "pre-upgrade"
 	pacman -Syu $(PACMAN_FLAGS)
 
 ## Instala el servidor de correo
@@ -25,6 +25,7 @@ pacnew:
 		vimdiff "$${f%%.pacnew}" "$$f" ;\
 		rm -f "$$f" ;\
 	done
+	cd /etc && etckeeper commit "upgrade-pacnew"
 
 # ---
 
