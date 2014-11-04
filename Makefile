@@ -14,6 +14,7 @@ USERS?=fauno matus
 	cd /root/Repos && git clone --branch=develop https://github.com/fauno/duraskel
 	cd /root/Repos/duraskel && make install
 
+# Paraboliza la instalación
 /etc/parabolized:
 	sed "s/^SigLevel.*/#&\nSigLevel = Never/" -i /etc/pacman.conf
 	pacman -U $(PACMAN_FLAGS) https://parabolagnulinux.org/packages/libre/any/parabola-keyring/download/
@@ -30,13 +31,16 @@ USERS?=fauno matus
 	pacman -S $(PACMAN_FLAGS) your-freedom
 	date +%s >/etc/parabolized
 
+# Crear los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
 	getent passwd $@ || useradd -m -g users -G wheel $@
 	echo "$@:cambiame" | chpasswd
 	cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
 
+# Crea todos los usuarios
 users: PHONY $(USERS)
 
 
+# Un shortcut para declarar reglas sin contraparte en el filesystem
 PHONY:
 .PHONY: PHONY
