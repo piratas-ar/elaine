@@ -1,6 +1,7 @@
 
 PACKAGES?=base vim sudo git tmux
 PACMAN_FLAGS?=--noconfirm --needed
+USERS?=fauno matus
 
 /usr/bin/rsync:
 	pacman -Sy $(PACMAN_FLAGS) rsync
@@ -28,3 +29,14 @@ PACMAN_FLAGS?=--noconfirm --needed
 	pacman -Suu $(PACMAN_FLAGS)
 	pacman -S $(PACMAN_FLAGS) your-freedom
 	date +%s >/etc/parabolized
+
+$(USERS): /etc/skel/.ssh/authorized_keys
+	getent passwd $@ || useradd -m -g users -G wheel $@
+	echo "$@:cambiame" | chpasswd
+	cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
+
+users: PHONY $(USERS)
+
+
+PHONY:
+.PHONY: PHONY
