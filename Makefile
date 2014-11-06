@@ -155,6 +155,15 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
 	systemctl enable postfix
 
+# Instala y habilita postgresql, dándole a root permisos
+# administrativos
+/var/lib/postgres/data:
+	pacman -Sy $(PACMAN_FLAGS) postgresql
+	sudo -u postgres initdb --locale en_US.UTF-8 -E UTF8 -D '$@'
+	systemctl enable postgresql
+	systemctl start postgresql
+	cd '$@' && sudo -u postgres createuser --superuser root
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
