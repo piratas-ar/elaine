@@ -4,7 +4,7 @@ PACMAN_FLAGS?=--noconfirm --needed
 USERS?=fauno matus mauricio
 PACKAGES?=rsync git make ruby find postfix sed etckeeper
 
-# Reglas generales
+# Reglas generales y de mantenimiento
 
 ## Crea todos los usuarios
 users: PHONY $(USERS)
@@ -29,11 +29,32 @@ pacnew: PHONY
 
 # ---
 
+# Reglas por archivo
+#
+# El objetivo de cada regla es terminar con un archivo.  Si se vuelve a
+# correr la regla pero el archivo existe, se la considera completa.
+#
+# Luego de cada regla se definen sus dependencias (otros archivos y sus
+# procedimientos), por lo que se va armando un árbol de dependencias.
+#
+# Los objetivos "phony" se ejecutan siempre.  Tienen que ser los de más
+# alto nivel porque si un archivo depende de un objetivo phony se va a
+# ejecutar cada vez.
+#
+# En make, cada línea es un comando que se corre en una shell separada,
+# por lo que no se mantiene el estado entre cada una (ni siquiera dentro
+# de una misma regla).  Por eso si se ejecutan comandos en serie hay que
+# encadenarlos con "&&" o "; \" donde "\" es el último carácter de la
+# línea.
+
 # Setear el hostname
 /etc/hostname:
 	echo $(HOSTNAME) >$@
 
 # Instalar paquetes con ejecutables del mismo nombre
+# La primera parte le agrega el path completo a cada uno de los binarios
+# de PACKAGES, la segunda mantiene el nombre del paquete en la variable
+# "$*"
 $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 	pacman -Sy $(PACMAN_FLAGS) $*
 
