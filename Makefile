@@ -69,6 +69,32 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 	cd /root/Repos && test -d duraskel/.git || git clone --branch=develop https://github.com/fauno/duraskel
 	cd /root/Repos/duraskel && make install
 
+/etc/ssh/sshd_config:
+	pacman -Sy $(PACMAN_FLAGS) openssh
+	sed "s/^#\?\(PermitRootLogin\).*/\1 no/" -i $@
+	sed "s/^#\?\(PasswordAuthentication\).*/\1 no/" -i $@
+	sed "s/^#\?\(AllowAgentForwarding\).*/\1 yes/" -i $@
+	sed "s/^#\?\(AllowGroups\).*/\1 users/" -i $@
+
+# Habilita a los usuarios a loguearse como root forwardeando su llave
+# privada con ssh-agent:
+#
+# ssh $(HOSTNAME)
+# ssh root@$(HOSTNAME)
+/root/.ssh/authorized_keys: /etc/ssh/sshd_config
+	grep -q "^Match Host localhost$$" $< && \
+		echo "Match Host localhost"  >>$<  && \
+		echo "  PermitRootLogin yes" >>$<
+	grep -q "^Match Address 127.0.0.1$$" $< && \
+		echo "Match Address 127.0.0.1"  >>$<  && \
+		echo "  PermitRootLogin yes" >>$<
+	grep -q "^Match Address ::1$$" $< && \
+		echo "Match Address ::1"  >>$<  && \
+		echo "  PermitRootLogin yes" >>$<
+	install -d -o root -g root -m 700 /root/.ssh
+	cat ssh/*.pub >$@
+	chmod 600 $@
+
 # Paraboliza la instalación
 # https://wiki.parabola.nu/Migration_From_Arch
 /etc/parabolized: /usr/bin/sed
