@@ -1,8 +1,8 @@
-HOSTNAME=printdustry.com
+HOSTNAME=partidopirata.com.ar
 
-PACMAN_FLAGS?=--noconfirm --needed
-USERS?=fauno matus mauricio
-PACKAGES?=rsync git make ruby find postfix sed etckeeper
+APT_FLAGS?=--assume-yes
+USERS?=fauno seykron aza
+PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
 # Reglas generales y de mantenimiento
 
@@ -13,19 +13,11 @@ users: PHONY $(USERS)
 upgrade: PHONY /usr/bin/etckeeper
 	cd /etc && test -d .git || etckeeper init
 	cd /etc && etckeeper commit "pre-upgrade"
-	pacman -Syu $(PACMAN_FLAGS)
+	apt-get update $(APT_FLAGS)
+	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
 mail-server: PHONY /etc/postfix/main.cf
-
-## Actualizar pacnew
-# FIXME se rompe la salida de la terminal y hay que resetear
-pacnew: PHONY 
-	find /etc -name '*.pacnew' | while read f; do \
-		vimdiff "$${f%%.pacnew}" "$$f" ;\
-		rm -f "$$f" ;\
-	done
-	cd /etc && etckeeper commit "upgrade-pacnew"
 
 # ---
 
@@ -56,7 +48,7 @@ pacnew: PHONY
 # de PACKAGES, la segunda mantiene el nombre del paquete en la variable
 # "$*"
 $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
-	pacman -Sy $(PACMAN_FLAGS) $*
+	apt-get install $(APT_FLAGS) $*
 
 /root/Repos:
 	mkdir -p /root/Repos
@@ -95,23 +87,6 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 	cat ssh/*.pub >$@
 	chmod 600 $@
 
-# Paraboliza la instalación
-# https://wiki.parabola.nu/Migration_From_Arch
-/etc/parabolized: /usr/bin/sed
-	sed "s/^SigLevel.*/#&\nSigLevel = Never/" -i /etc/pacman.conf
-	pacman -U $(PACMAN_FLAGS) https://parabolagnulinux.org/packages/libre/any/parabola-keyring/download/
-	pacman -U $(PACMAN_FLAGS) https://parabolagnulinux.org/packages/libre/any/pacman-mirrorlist/download/
-	rm -f /etc/pacman.d/mirrorlist /etc/pacman.conf
-	mv /etc/pacman.d/mirrorlist{.pacnew,}
-	mv /etc/pacman.conf{.pacnew,}
-	echo -e "[pcr]\nInclude = /etc/pacman.d/mirrorlist" >>/etc/pacman.conf
-	pacman -Scc $(PACMAN_FLAGS)
-	pacman -Syy $(PACMAN_FLAGS)
-	pacman -S $(PACMAN_FLAGS) pacman
-	pacman -Suu $(PACMAN_FLAGS)
-	pacman -S $(PACMAN_FLAGS) your-freedom
-	date +%s >/etc/parabolized
-
 # Crea los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
 	getent passwd $@ || useradd -m -g users -G wheel $@
@@ -122,7 +97,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 
 # Configura nginx
 /etc/nginx/nginx.conf: /usr/bin/git /usr/bin/find
-	pacman -Sy $(PACMAN_FLAGS) nginx-passenger
+	apt-get install $(APT_FLAGS) nginx-passenger
 	rm -r /etc/nginx
 	cd /etc && git clone https://github.com/fauno/nginx-config nginx
 	rm -v /etc/nginx/sites/*.conf
@@ -133,7 +108,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 
 # Instala ssl.git para administrar los certificados
 /etc/ssl/Makefile: /usr/bin/bundle /usr/bin/git
-	pacman -Sy $(PACMAN_FLAGS) gnutls
+	apt-get install $(APT_FLAGS) gnutls
 	cd /etc && git clone https://github.com/fauno/ssl ssl~
 	cd /etc && mv ssl{,~~} && mv ssl{~,}
 	cd /etc && cp ssl~~/certs/* ssl/certs/ || true
@@ -153,7 +128,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 # Configura postfix
 /etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/bin/postfix
 	gpasswd -a postfix keys
-	postconf -e mydomain='printdustry.com'
+	postconf -e mydomain='$(HOSTNAME)'
 	postconf -e inet_interfaces='all'
 	postconf -e 'local_recipient_maps = unix:passwd.byname $$alias_maps'
 	postconf -e mynetworks_style='host'
@@ -200,16 +175,6 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_loglevel='0'
 	postconf -e smtpd_tls_received_header='yes'
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
-	systemctl enable postfix
-
-# Instala y habilita postgresql, dándole a root permisos
-# administrativos
-/var/lib/postgres/data:
-	pacman -Sy $(PACMAN_FLAGS) postgresql
-	sudo -u postgres initdb --locale en_US.UTF-8 -E UTF8 -D '$@'
-	systemctl enable postgresql
-	systemctl start postgresql
-	cd '$@' && sudo -u postgres createuser --superuser root
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
