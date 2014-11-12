@@ -4,6 +4,11 @@ APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
+# Migración del correo
+MAILDIRS=/home/fauno/threepwood/var/vmail/partidopirata.com.ar
+MAILUSERS=$(shell ls "$(MAILDIRS)")
+MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
+
 # Reglas generales y de mantenimiento
 
 ## Crea todos los usuarios
@@ -17,7 +22,10 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/postfix/main.cf
+mail-server: PHONY /etc/postfix/main.cf /etc/dovecot/dovecot.conf
+
+## Migra todos los correos
+migrate-all-the-emails: PHONY $(MAILHOMES)
 
 # ---
 
@@ -202,6 +210,33 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtp_sasl_security_options='noanonymous'
 	postconf -e broken_sasl_auth_clients='yes'
 	postconf -e smtpd_sasl_local_domain='$$myhostname'
+
+# Cada pirata tiene un maildir
+/etc/skel/Maildir:
+	install -Dm 700 $@
+
+# Migra los correos de cada usuario creándoles cuentas en el sistema con
+# una contraseña por defecto ("cambiame")
+$(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
+	getent group piratas || groupadd --system piratas
+# Los piratas se crean sin acceso por shell aunque después se puede
+# cambiar
+	getent passwd $* || \
+		useradd --home-dir /home/$* \
+		        --create-home \
+						--shell /bin/false \
+						--gid piratas \
+						$* && \
+		echo "$*:cambiame" | chpasswd
+# Migra los correos
+	rsync -av "$(MAILDIRS)/$*/" "$@/"
+# Corrige permisos
+# Los homes son solo accesibles para cada pirata
+	chmod 700 /home/$*
+# Los mails también
+	find "$@" -type f -print0 | xargs -0 chmod 600
+	find "$@" -type d -print0 | xargs -0 chmod 700
+	chown -R $*:piratas "$@"
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
