@@ -62,7 +62,7 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 	cd /root/Repos/duraskel && make install
 
 /etc/ssh/sshd_config:
-	pacman -Sy $(PACMAN_FLAGS) openssh
+	apt-get install $(APT_FLAGS) openssh-server openssh-client
 	sed "s/^#\?\(PermitRootLogin\).*/\1 no/" -i $@
 	sed "s/^#\?\(PasswordAuthentication\).*/\1 no/" -i $@
 	sed "s/^#\?\(AllowAgentForwarding\).*/\1 yes/" -i $@
@@ -126,7 +126,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	cd /etc/ssl && make ssl-self-signed-certs
 
 # Configura postfix
-/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/bin/postfix
+/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/bin/postfix /etc/postfix/master.cf
 	gpasswd -a postfix keys
 	postconf -e mydomain='$(HOSTNAME)'
 	postconf -e inet_interfaces='all'
@@ -175,6 +175,33 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_loglevel='0'
 	postconf -e smtpd_tls_received_header='yes'
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
+
+/etc/postfix/master.cf:
+	grep -qw "^tlsproxy" || cat etc/postfix/master.d/tlsproxy.cf >>$@
+	grep -qw "^submission" || cat etc/postfix/master.d/submission.cf >>$@
+
+# Instala y configura dovecot
+#
+# La autenticación es por los usuarios del sistema.  Cada usuario del
+# sistema con login tiene una cuenta de correo.
+/etc/dovecot/dovecot.conf: /etc/postfix/main.cf
+	apt-get install $(APT_FLAGS) dovecot-imapd dovecot-pop3d dovecot-sieve dovecot-lmtpd
+# Pisa la configuración del paquete con la nuestra
+	rsync -av --delete-after etc/dovecot/ /etc/dovecot/
+# Seguridad
+	chown -R dovecot:dovecot /etc/dovecot
+	find /etc/dovecot -type f -exec chmod 640 {} \;
+	find /etc/dovecot -type d -exec chmod 750 {} \;
+# Configura el hostname
+	find /etc/dovecot -type f -print0 | xargs -0 sed -i "s/{{HOSTNAME}}/$(HOSTNAME)/g"
+# Habilita postfix a autenticar usuarios en dovecot
+	postconf -e smtpd_sasl_type='dovecot'
+	postconf -e smtpd_sasl_path='private/auth'
+	postconf -e smtpd_sasl_auth_enable='yes'
+	postconf -e smtpd_sasl_security_options='noanonymous'
+	postconf -e smtp_sasl_security_options='noanonymous'
+	postconf -e broken_sasl_auth_clients='yes'
+	postconf -e smtpd_sasl_local_domain='$$myhostname'
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
