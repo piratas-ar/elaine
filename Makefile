@@ -83,14 +83,7 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 # ssh root@$(HOSTNAME)
 /root/.ssh/authorized_keys: /etc/ssh/sshd_config
 	grep -q "^Match Host localhost$$" $< && \
-		echo "Match Host localhost"  >>$<  && \
-		echo "  PermitRootLogin yes" >>$<
-	grep -q "^Match Address 127.0.0.1$$" $< && \
-		echo "Match Address 127.0.0.1"  >>$<  && \
-		echo "  PermitRootLogin yes" >>$<
-	grep -q "^Match Address ::1$$" $< && \
-		echo "Match Address ::1"  >>$<  && \
-		echo "  PermitRootLogin yes" >>$<
+		cat etc/ssh/only_root >>$<
 	install -d -o root -g root -m 700 /root/.ssh
 	cat ssh/*.pub >$@
 	chmod 600 $@
