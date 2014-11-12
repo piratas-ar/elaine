@@ -1,3 +1,5 @@
+# La contraseña por defecto para nuevos piratas
+PASSWORD=
 HOSTNAME=partidopirata.com.ar
 
 APT_FLAGS?=--assume-yes
@@ -209,8 +211,9 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	install -Dm 700 $@
 
 # Migra los correos de cada usuario creándoles cuentas en el sistema con
-# una contraseña por defecto ("cambiame")
+# una contraseña por defecto
 $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
+	test -z "$(PASSWORD)"
 	getent group piratas || groupadd --system piratas
 # Los piratas se crean sin acceso por shell aunque después se puede
 # cambiar
@@ -220,7 +223,7 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 						--shell /bin/false \
 						--gid piratas \
 						$* && \
-		echo "$*:cambiame" | chpasswd
+		echo "$*:$(PASSWORD)" | chpasswd
 # Migra los correos
 	rsync -av "$(MAILDIRS)/$*/" "$@/"
 # Corrige permisos
