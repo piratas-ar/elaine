@@ -284,7 +284,7 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	postconf -e relay_domains='$(MAILMAN_HOST)'
 	postconf -e transport_maps='hash:/etc/postfix/transport'
 	postconf -e mailman_destination_recipient_limit='1'
-	postconf -e alias_maps='hash:/etc/postfix/aliases hash:/var/lib/mailman/data/aliases'
+	postconf -e alias_maps='hash:/etc/aliases hash:/var/lib/mailman/data/aliases'
 	grep -qw "^mailman" /etc/postfix/master.cf || cat etc/postfix/master.d/mailman.cf >>/etc/postfix/master.cf
 	grep -qw "^$(MAILMAN_HOST)" /etc/postfix/transport || echo "$(MAILMAN_HOST)  mailman:" >>/etc/postfix/transport
 	postmap /etc/postfix/transport
