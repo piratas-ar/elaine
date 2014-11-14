@@ -7,6 +7,8 @@ APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
 # El grupo que tiene permisos en sudo
 SUDO_GROUP=sudo
+# Versión de ubuntu
+UBUNTU=trusty
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
 # Ubicación de bundler
@@ -129,7 +131,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	test -f ssh/$@.pub && cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
 
 # Configura nginx
-/etc/nginx/nginx.conf: /usr/bin/git /usr/bin/find
+/etc/nginx/sites/$(HOSTNAME).conf: /usr/bin/git /usr/bin/find
 	apt-get install $(APT_FLAGS) nginx-passenger
 	rm -r /etc/nginx
 	cd /etc && git clone https://github.com/fauno/nginx-config nginx
@@ -320,6 +322,15 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	rsync -avHAX "$(BACKUP_DIR)/srv/http/" "/srv/http/"
 	# por ahora no migramos los usuarios de cada sitio
 	chown -R http:http /srv/http
+
+# Nginx-Passenger para ubuntu
+/etc/apt/sources.list.d/passenger.list: /etc/nginx/sites/$(HOSTNAME).conf
+	echo "deb https://oss-binaries.phusionpassenger.com/apt/passenger $(UBUNTU) main" >$@
+	chmod 600 $@
+	chown root:root $@
+	apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 561F9B9CAC40B2F7
+	apt-get update $(APT_FLAGS)
+	apt-get install $(APT_FLAGS) nginx-extras passenger
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
