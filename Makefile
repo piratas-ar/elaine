@@ -1,5 +1,6 @@
 # La contraseña por defecto para nuevos piratas
 PASSWORD=
+GROUP=piratas
 HOSTNAME=partidopirata.com.ar
 
 APT_FLAGS?=--assume-yes
@@ -221,16 +222,17 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 # Migra los correos de cada usuario creándoles cuentas en el sistema con
 # una contraseña por defecto
 $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
-	@echo "Testeando que hayamos seteado PASSWORD"
+	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
 	test -n "$(PASSWORD)"
-	getent group piratas || groupadd --system piratas
+	test -n "$(GROUP)"
+	getent group $(GROUP) || groupadd --system $(GROUP)
 # Los piratas se crean sin acceso por shell aunque después se puede
 # cambiar
 	getent passwd $* || \
 		useradd --home-dir /home/$* \
 		        --create-home \
 						--shell /bin/false \
-						--gid piratas \
+						--gid $(GROUP) \
 						$* && \
 		echo "$*:$(PASSWORD)" | chpasswd
 # Migra los correos
@@ -241,7 +243,7 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 # Los mails también
 	find "$@" -type f -print0 | xargs -0 chmod 600
 	find "$@" -type d -print0 | xargs -0 chmod 700
-	chown -R $*:piratas "$@"
+	chown -R $*:$(GROUP) "$@"
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
