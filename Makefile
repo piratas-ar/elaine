@@ -216,12 +216,13 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 
 # Cada pirata tiene un maildir
 /etc/skel/Maildir:
-	install -Dm 700 $@
+	install -dm 700 $@
 
 # Migra los correos de cada usuario creándoles cuentas en el sistema con
 # una contraseña por defecto
 $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
-	test -z "$(PASSWORD)"
+	@echo "Testeando que hayamos seteado PASSWORD"
+	test -n "$(PASSWORD)"
 	getent group piratas || groupadd --system piratas
 # Los piratas se crean sin acceso por shell aunque después se puede
 # cambiar
