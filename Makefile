@@ -131,15 +131,17 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	test -f ssh/$@.pub && cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
 
 # Configura nginx
-/etc/nginx/sites/$(HOSTNAME).conf: /usr/bin/git /usr/bin/find
-	apt-get install $(APT_FLAGS) nginx-passenger
-	rm -r /etc/nginx
+/etc/nginx/sites/$(HOSTNAME).conf: /usr/bin/git /usr/bin/find /etc/apt/sources.list.d/passenger.list
+	apt-get install $(APT_FLAGS) nginx-extras passenger
+	@echo "Los archivos anteriores de nginx quedan en /etc/nginx~"
+	@mv /etc/nginx /etc/nginx~
 	cd /etc && git clone https://github.com/fauno/nginx-config nginx
 	rm -v /etc/nginx/sites/*.conf
 # Seguridad
 	chown -R root:root /etc/nginx
 	find /etc/nginx -type d -exec chmod 750 {} \;
 	find /etc/nginx -type f -exec chmod 640 {} \;
+	touch $@
 
 # Instala ssl.git para administrar los certificados
 /etc/ssl/Makefile: $(BUNDLER) /usr/bin/git
@@ -324,13 +326,12 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	chown -R http:http /srv/http
 
 # Nginx-Passenger para ubuntu
-/etc/apt/sources.list.d/passenger.list: /etc/nginx/sites/$(HOSTNAME).conf
+/etc/apt/sources.list.d/passenger.list:
 	echo "deb https://oss-binaries.phusionpassenger.com/apt/passenger $(UBUNTU) main" >$@
 	chmod 600 $@
 	chown root:root $@
 	apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 561F9B9CAC40B2F7
 	apt-get update $(APT_FLAGS)
-	apt-get install $(APT_FLAGS) nginx-extras passenger
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
