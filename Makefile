@@ -59,6 +59,8 @@ mailman: PHONY /var/lib/mailman/archives/public/general
 	service postfix restart
 	service mailman restart
 
+sitios: $(SITES) /srv/http
+
 # ---
 
 # Reglas por archivo
@@ -343,7 +345,7 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	find /etc/php5 -type f -print0 | \
 		xargs -0 sed -i "s/www-data/http/g"
 	
-$(SITES):
+$(SITES): /etc/nginx/sites
 	test -f $@ || install -Dm640 $(BACKUP_DIR)$@ $@
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
