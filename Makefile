@@ -24,6 +24,9 @@ MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
 MAILMAN_DIR=/var/lib/mailman
 MAILMAN_HOST=asambleas.partidopirata.com.ar
 
+# Si postfix corre en una chroot
+POSTFIX_PROXY=proxy:
+
 # Reglas generales y de mantenimiento
 
 ## Crea todos los usuarios
@@ -167,7 +170,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e mydomain='$(HOSTNAME)'
 	postconf -e mydestination='$$mydomain'
 	postconf -e inet_interfaces='all'
-	postconf -e 'local_recipient_maps = unix:passwd.byname $$alias_maps'
+	postconf -e 'local_recipient_maps = $(POSTFIX_PROXY)unix:passwd.byname $$alias_maps'
 	postconf -e mynetworks_style='host'
 	postconf -e home_mailbox='Maildir/'
 	postconf -e inet_protocols='all'
