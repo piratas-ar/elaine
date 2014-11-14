@@ -6,6 +6,8 @@ APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
+BUNDLER=/usr/local/bin/bundle
+
 # Migración del correo
 MAILDIRS=/home/fauno/threepwood/var/vmail/partidopirata.com.ar
 MAILUSERS=$(shell ls "$(MAILDIRS)")
@@ -63,7 +65,7 @@ $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 /root/Repos:
 	mkdir -p /root/Repos
 
-/usr/bin/bundle:
+$(BUNDLER):
 	gem install --no-user-install bundler
 
 # Carga un skel más seguro
@@ -110,7 +112,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	find /etc/nginx -type f -exec chmod 640 {} \;
 
 # Instala ssl.git para administrar los certificados
-/etc/ssl/Makefile: /usr/bin/bundle /usr/bin/git
+/etc/ssl/Makefile: $(BUNDLER) /usr/bin/git
 	apt-get install $(APT_FLAGS) gnutls
 	cd /etc && git clone https://github.com/fauno/ssl ssl~
 	cd /etc && mv ssl{,~~} && mv ssl{~,}
