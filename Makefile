@@ -333,6 +333,12 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 561F9B9CAC40B2F7
 	apt-get update $(APT_FLAGS)
 
+# Instalar PHP-FPM
+/etc/php5/fpm/php.ini:
+	apt-get install $(APT_FLAGS) php5-fpm php5-mysql
+	find /etc/php5 -type f -print0 | \
+		xargs -0 sed -i "s/www-data/http/g"
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
