@@ -65,6 +65,9 @@ migrate-all-the-emails: PHONY $(MAILHOMES)
 $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 	apt-get install $(APT_FLAGS) $*
 
+$(patsubst %,/usr/sbin/%,$(PACKAGES)): /usr/sbin/%:
+	apt-get install $(APT_FLAGS) $*
+
 /root/Repos:
 	mkdir -p /root/Repos
 
@@ -134,7 +137,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	cd /etc/ssl && make ssl-self-signed-certs
 
 # Configura postfix
-/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/bin/postfix /etc/postfix/master.cf
+/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/sbin/postfix /etc/postfix/master.cf
 	gpasswd -a postfix keys
 	postconf -e mydomain='$(HOSTNAME)'
 	postconf -e inet_interfaces='all'
