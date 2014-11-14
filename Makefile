@@ -31,6 +31,10 @@ MAILMAN_HOST=asambleas.partidopirata.com.ar
 # Si postfix corre en una chroot
 POSTFIX_PROXY=proxy:
 
+# Sitios
+OLD_SITES=$(shell find $(BACKUP_DIR)/etc/nginx/sites -name '*.conf')
+SITES=$(patsubst $(BACKUP_DIR)%,%,$(OLD_SITES))
+
 # Reglas generales y de mantenimiento
 
 ## Crea todos los usuarios
@@ -338,6 +342,9 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	apt-get install $(APT_FLAGS) php5-fpm php5-mysql
 	find /etc/php5 -type f -print0 | \
 		xargs -0 sed -i "s/www-data/http/g"
+	
+$(SITES):
+	test -f $@ || install -Dm640 $(BACKUP_DIR)$@ $@
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
