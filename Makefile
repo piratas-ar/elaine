@@ -139,8 +139,20 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 
 # Configura postfix
 /etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/sbin/postfix /etc/postfix/master.cf
+	apt-get install $(APT_FLAGS) postfix-pcre
+	sed "s/@@DISTRO@@/$(GROUP)/g" /usr/share/postfix/main.cf.dist >$@
 	gpasswd -a postfix keys
+	postconf -e sendmail_path='/usr/sbin/sendmail'
+	postconf -e newaliases_path='/usr/bin/newaliases'
+	postconf -e mailq_path='/usr/bin/mailq'
+	postconf -e setgid_group='postdrop'
+	postconf -e manpage_directory='/usr/share/man'
+	postconf -e sample_directory='/etc/postfix/sample'
+	postconf -e readme_directory='/usr/share/doc/postfix'
+	postconf -e html_directory='no'
+	postconf -e soft_bounce='yes'
 	postconf -e mydomain='$(HOSTNAME)'
+	postconf -e mydestination='$$mydomain'
 	postconf -e inet_interfaces='all'
 	postconf -e 'local_recipient_maps = unix:passwd.byname $$alias_maps'
 	postconf -e mynetworks_style='host'
@@ -189,14 +201,18 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
 
 /etc/postfix/master.cf:
-	grep -qw "^tlsproxy" || cat etc/postfix/master.d/tlsproxy.cf >>$@
-	grep -qw "^submission" || cat etc/postfix/master.d/submission.cf >>$@
+	grep -qw "^tlsproxy" $@ || cat etc/postfix/master.d/tlsproxy.cf >>$@
+	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
 
 # Instala y configura dovecot
 #
 # La autenticación es por los usuarios del sistema.  Cada usuario del
 # sistema con login tiene una cuenta de correo.
-/etc/dovecot/dovecot.conf: /etc/postfix/main.cf
+/etc/dovecot/dovecot.conf: /etc/postfix/main.cf /etc/prosody/prosody.cfg.lua
+	# servicios que se autentican en dovecot
+	groupadd --system auth
+	gpasswd -a postfix auth
+	gpasswd -a prosody auth
 	apt-get install $(APT_FLAGS) dovecot-imapd dovecot-pop3d dovecot-sieve dovecot-lmtpd
 # Pisa la configuración del paquete con la nuestra
 	rsync -av --delete-after etc/dovecot/ /etc/dovecot/
@@ -244,6 +260,9 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	find "$@" -type f -print0 | xargs -0 chmod 600
 	find "$@" -type d -print0 | xargs -0 chmod 700
 	chown -R $*:$(GROUP) "$@"
+
+/etc/prosody/prosody.cfg.lua:
+	apt-get install $(APT_FLAGS) prosody
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
