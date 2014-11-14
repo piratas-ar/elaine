@@ -12,10 +12,17 @@ BUNDLER=/usr/local/bin/bundle
 # Paquete de gnutls
 GNUTLS=gnutls-bin
 
+# Dónde están los backups
+BACKUP_DIR=/home/fauno/threepwood
+
 # Migración del correo
-MAILDIRS=/home/fauno/threepwood/var/vmail/partidopirata.com.ar
+MAILDIRS=$(BACKUP_DIR)/var/vmail/partidopirata.com.ar
 MAILUSERS=$(shell ls "$(MAILDIRS)")
 MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
+
+# Mailman
+MAILMAN_DIR=/var/lib/mailman
+MAILMAN_HOST=asambleas.partidopirata.com.ar
 
 # Reglas generales y de mantenimiento
 
@@ -34,6 +41,12 @@ mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dove
 
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
+
+## Instala y migra mailman
+mailman: PHONY /var/lib/mailman/archives/public/general
+	newaliases
+	service postfix restart
+	service mailman restart
 
 # ---
 
@@ -263,6 +276,25 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 
 /etc/prosody/prosody.cfg.lua:
 	apt-get install $(APT_FLAGS) prosody
+
+# Instalar mailman
+/var/lib/mailman: /etc/postfix/main.cf
+	apt-get install $(APT_FLAGS) mailman
+	cat "$(BACKUP_DIR)/usr/lib/mailman/Mailman/mm_cfg.py" >/etc/mailman/mm_cfg.py
+	postconf -e relay_domains='$(MAILMAN_HOST)'
+	postconf -e transport_maps='hash:/etc/postfix/transport'
+	postconf -e mailman_destination_recipient_limit='1'
+	postconf -e alias_maps='hash:/etc/postfix/aliases hash:/var/lib/mailman/data/aliases'
+	grep -qw "^mailman" /etc/postfix/master.cf || cat etc/postfix/master.d/mailman.cf >>/etc/postfix/master.cf
+	grep -qw "^$(MAILMAN_HOST)" /etc/postfix/transport || echo "$(MAILMAN_HOST)  mailman:" >>/etc/postfix/transport
+	postmap /etc/postfix/transport
+
+# Migrar el archivo de mailman
+/var/lib/mailman/archives/public/general: /var/lib/mailman
+	@echo "Testeando que MAILMAN_DIR no esté vacío"
+	test -n "$(MAILMAN_DIR)"
+	rsync -av "$(BACKUP_DIR)/$(MAILMAN_DIR)/" "$(MAILMAN_DIR)"
+	chown -R list:list "$(MAILMAN_DIR)"
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
