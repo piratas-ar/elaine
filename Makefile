@@ -1,15 +1,28 @@
 # La contraseña por defecto para nuevos piratas
 PASSWORD=
+GROUP=piratas
 HOSTNAME=partidopirata.com.ar
 
 APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
+# Ubicación de bundler
+BUNDLER=/usr/local/bin/bundle
+# Paquete de gnutls
+GNUTLS=gnutls-bin
+
+# Dónde están los backups
+BACKUP_DIR=/home/fauno/threepwood
+
 # Migración del correo
-MAILDIRS=/home/fauno/threepwood/var/vmail/partidopirata.com.ar
+MAILDIRS=$(BACKUP_DIR)/var/vmail/partidopirata.com.ar
 MAILUSERS=$(shell ls "$(MAILDIRS)")
 MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
+
+# Mailman
+MAILMAN_DIR=/var/lib/mailman
+MAILMAN_HOST=asambleas.partidopirata.com.ar
 
 # Reglas generales y de mantenimiento
 
@@ -24,10 +37,16 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/postfix/main.cf /etc/dovecot/dovecot.conf
+mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dovecot.conf
 
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
+
+## Instala y migra mailman
+mailman: PHONY /var/lib/mailman/archives/public/general
+	newaliases
+	service postfix restart
+	service mailman restart
 
 # ---
 
@@ -60,10 +79,13 @@ migrate-all-the-emails: PHONY $(MAILHOMES)
 $(patsubst %,/usr/bin/%,$(PACKAGES)): /usr/bin/%:
 	apt-get install $(APT_FLAGS) $*
 
+$(patsubst %,/usr/sbin/%,$(PACKAGES)): /usr/sbin/%:
+	apt-get install $(APT_FLAGS) $*
+
 /root/Repos:
 	mkdir -p /root/Repos
 
-/usr/bin/bundle:
+$(BUNDLER):
 	gem install --no-user-install bundler
 
 # Carga un skel más seguro
@@ -110,10 +132,10 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	find /etc/nginx -type f -exec chmod 640 {} \;
 
 # Instala ssl.git para administrar los certificados
-/etc/ssl/Makefile: /usr/bin/bundle /usr/bin/git
-	apt-get install $(APT_FLAGS) gnutls
+/etc/ssl/Makefile: $(BUNDLER) /usr/bin/git
+	apt-get install $(APT_FLAGS) $(GNUTLS)
 	cd /etc && git clone https://github.com/fauno/ssl ssl~
-	cd /etc && mv ssl{,~~} && mv ssl{~,}
+	cd /etc && mv ssl ssl~~ && mv ssl~ ssl
 	cd /etc && cp ssl~~/certs/* ssl/certs/ || true
 	cd /etc && cp ssl~~/private/* ssl/private/ || true
 	rm -rf /etc/ssl~~
@@ -129,9 +151,21 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	cd /etc/ssl && make ssl-self-signed-certs
 
 # Configura postfix
-/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/bin/postfix /etc/postfix/master.cf
+/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/sbin/postfix
+	apt-get install $(APT_FLAGS) postfix-pcre
+	sed "s/@@DISTRO@@/$(GROUP)/g" /usr/share/postfix/main.cf.dist >$@
 	gpasswd -a postfix keys
+	postconf -e sendmail_path='/usr/sbin/sendmail'
+	postconf -e newaliases_path='/usr/bin/newaliases'
+	postconf -e mailq_path='/usr/bin/mailq'
+	postconf -e setgid_group='postdrop'
+	postconf -e manpage_directory='/usr/share/man'
+	postconf -e sample_directory='/etc/postfix/sample'
+	postconf -e readme_directory='/usr/share/doc/postfix'
+	postconf -e html_directory='no'
+	postconf -e soft_bounce='yes'
 	postconf -e mydomain='$(HOSTNAME)'
+	postconf -e mydestination='$$mydomain'
 	postconf -e inet_interfaces='all'
 	postconf -e 'local_recipient_maps = unix:passwd.byname $$alias_maps'
 	postconf -e mynetworks_style='host'
@@ -179,15 +213,19 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_received_header='yes'
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
 
-/etc/postfix/master.cf:
-	grep -qw "^tlsproxy" || cat etc/postfix/master.d/tlsproxy.cf >>$@
-	grep -qw "^submission" || cat etc/postfix/master.d/submission.cf >>$@
+/etc/postfix/master.cf: PHONY /usr/sbin/postfix
+	grep -qw "^tlsproxy" $@ || cat etc/postfix/master.d/tlsproxy.cf >>$@
+	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
 
 # Instala y configura dovecot
 #
 # La autenticación es por los usuarios del sistema.  Cada usuario del
 # sistema con login tiene una cuenta de correo.
-/etc/dovecot/dovecot.conf: /etc/postfix/main.cf
+/etc/dovecot/dovecot.conf: /etc/postfix/main.cf /etc/prosody/prosody.cfg.lua
+	# servicios que se autentican en dovecot
+	groupadd --system auth
+	gpasswd -a postfix auth
+	gpasswd -a prosody auth
 	apt-get install $(APT_FLAGS) dovecot-imapd dovecot-pop3d dovecot-sieve dovecot-lmtpd
 # Pisa la configuración del paquete con la nuestra
 	rsync -av --delete-after etc/dovecot/ /etc/dovecot/
@@ -208,20 +246,22 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 
 # Cada pirata tiene un maildir
 /etc/skel/Maildir:
-	install -Dm 700 $@
+	install -dm 700 $@
 
 # Migra los correos de cada usuario creándoles cuentas en el sistema con
 # una contraseña por defecto
 $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
-	test -z "$(PASSWORD)"
-	getent group piratas || groupadd --system piratas
+	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
+	test -n "$(PASSWORD)"
+	test -n "$(GROUP)"
+	getent group $(GROUP) || groupadd --system $(GROUP)
 # Los piratas se crean sin acceso por shell aunque después se puede
 # cambiar
 	getent passwd $* || \
 		useradd --home-dir /home/$* \
 		        --create-home \
 						--shell /bin/false \
-						--gid piratas \
+						--gid $(GROUP) \
 						$* && \
 		echo "$*:$(PASSWORD)" | chpasswd
 # Migra los correos
@@ -232,7 +272,29 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 # Los mails también
 	find "$@" -type f -print0 | xargs -0 chmod 600
 	find "$@" -type d -print0 | xargs -0 chmod 700
-	chown -R $*:piratas "$@"
+	chown -R $*:$(GROUP) "$@"
+
+/etc/prosody/prosody.cfg.lua:
+	apt-get install $(APT_FLAGS) prosody
+
+# Instalar mailman
+/var/lib/mailman: /etc/postfix/main.cf
+	apt-get install $(APT_FLAGS) mailman
+	cat "$(BACKUP_DIR)/usr/lib/mailman/Mailman/mm_cfg.py" >/etc/mailman/mm_cfg.py
+	postconf -e relay_domains='$(MAILMAN_HOST)'
+	postconf -e transport_maps='hash:/etc/postfix/transport'
+	postconf -e mailman_destination_recipient_limit='1'
+	postconf -e alias_maps='hash:/etc/postfix/aliases hash:/var/lib/mailman/data/aliases'
+	grep -qw "^mailman" /etc/postfix/master.cf || cat etc/postfix/master.d/mailman.cf >>/etc/postfix/master.cf
+	grep -qw "^$(MAILMAN_HOST)" /etc/postfix/transport || echo "$(MAILMAN_HOST)  mailman:" >>/etc/postfix/transport
+	postmap /etc/postfix/transport
+
+# Migrar el archivo de mailman
+/var/lib/mailman/archives/public/general: /var/lib/mailman
+	@echo "Testeando que MAILMAN_DIR no esté vacío"
+	test -n "$(MAILMAN_DIR)"
+	rsync -av "$(BACKUP_DIR)/$(MAILMAN_DIR)/" "$(MAILMAN_DIR)"
+	chown -R list:list "$(MAILMAN_DIR)"
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
