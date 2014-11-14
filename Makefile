@@ -299,10 +299,26 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 
 # Migrar el archivo de mailman
 /var/lib/mailman/archives/public/general: /var/lib/mailman
-	@echo "Testeando que MAILMAN_DIR no esté vacío"
+	@echo "Testeando que MAILMAN_DIR ni BACKUP_DIR estén vacíos"
 	test -n "$(MAILMAN_DIR)"
+	test -n "$(BACKUP_DIR)"
 	rsync -av "$(BACKUP_DIR)/$(MAILMAN_DIR)/" "$(MAILMAN_DIR)"
 	chown -R list:list "$(MAILMAN_DIR)"
+
+# Migrar los sitios
+/srv/http:
+	@echo "Testeando que BACKUP_DIR no esté vacío"
+	test -n "$(BACKUP_DIR)"
+	groupadd --system http
+	useradd --gid http --system \
+	        --no-create-home \
+					--shell /bin/false \
+					--home-dir /srv/http \
+					http
+	install -dm2750 --owner http --group http /srv/http
+	rsync -avHAX "$(BACKUP_DIR)/srv/http/" "/srv/http/"
+	# por ahora no migramos los usuarios de cada sitio
+	chown -R http:http /srv/http
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
