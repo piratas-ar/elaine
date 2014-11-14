@@ -5,6 +5,8 @@ HOSTNAME=partidopirata.com.ar
 
 APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
+# El grupo que tiene permisos en sudo
+SUDO_GROUP=sudo
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
 # Ubicación de bundler
@@ -117,8 +119,9 @@ $(BUNDLER):
 
 # Crea los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
-	getent passwd $@ || useradd -m -g users -G wheel $@
-	getent passwd $@ && gpasswd -a $@ wheel
+	getent group users || groupadd --system users
+	getent passwd $@ || useradd -m -g users -G $(SUDO_GROUP) $@
+	getent passwd $@ && gpasswd -a $@ $(SUDO_GROUP)
 	getent passwd $@ && chsh --shell /bin/bash $@
 # Inseguridad
 	echo "$@:cambiame" | chpasswd
