@@ -309,7 +309,8 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 /srv/http:
 	@echo "Testeando que BACKUP_DIR no esté vacío"
 	test -n "$(BACKUP_DIR)"
-	groupadd --system http
+	getent group http || groupadd --system http
+	getent passwd http || \
 	useradd --gid http --system \
 	        --no-create-home \
 					--shell /bin/false \
