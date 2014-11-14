@@ -6,7 +6,10 @@ APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
+# Ubicación de bundler
 BUNDLER=/usr/local/bin/bundle
+# Paquete de gnutls
+GNUTLS=gnutls-bin
 
 # Migración del correo
 MAILDIRS=/home/fauno/threepwood/var/vmail/partidopirata.com.ar
@@ -113,9 +116,9 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 
 # Instala ssl.git para administrar los certificados
 /etc/ssl/Makefile: $(BUNDLER) /usr/bin/git
-	apt-get install $(APT_FLAGS) gnutls
+	apt-get install $(APT_FLAGS) $(GNUTLS)
 	cd /etc && git clone https://github.com/fauno/ssl ssl~
-	cd /etc && mv ssl{,~~} && mv ssl{~,}
+	cd /etc && mv ssl ssl~~ && mv ssl~ ssl
 	cd /etc && cp ssl~~/certs/* ssl/certs/ || true
 	cd /etc && cp ssl~~/private/* ssl/private/ || true
 	rm -rf /etc/ssl~~
