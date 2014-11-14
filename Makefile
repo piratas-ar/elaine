@@ -30,7 +30,7 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/postfix/main.cf /etc/dovecot/dovecot.conf
+mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dovecot.conf
 
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
@@ -138,7 +138,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	cd /etc/ssl && make ssl-self-signed-certs
 
 # Configura postfix
-/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/sbin/postfix /etc/postfix/master.cf
+/etc/postfix/main.cf: /etc/hostname /etc/ssl/certs/$(HOSTNAME).crt /usr/sbin/postfix
 	apt-get install $(APT_FLAGS) postfix-pcre
 	sed "s/@@DISTRO@@/$(GROUP)/g" /usr/share/postfix/main.cf.dist >$@
 	gpasswd -a postfix keys
@@ -200,7 +200,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_received_header='yes'
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
 
-/etc/postfix/master.cf:
+/etc/postfix/master.cf: PHONY /usr/sbin/postfix
 	grep -qw "^tlsproxy" $@ || cat etc/postfix/master.d/tlsproxy.cf >>$@
 	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
 
