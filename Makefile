@@ -118,10 +118,12 @@ $(BUNDLER):
 # Crea los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
 	getent passwd $@ || useradd -m -g users -G wheel $@
+	getent passwd $@ && gpasswd -a $@ wheel
+	getent passwd $@ && chsh --shell /bin/bash $@
 # Inseguridad
 	echo "$@:cambiame" | chpasswd
 # Seguridad
-	cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
+	test -f ssh/$@.pub && cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
 
 # Configura nginx
 /etc/nginx/nginx.conf: /usr/bin/git /usr/bin/find
