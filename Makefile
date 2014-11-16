@@ -54,7 +54,9 @@ mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dove
 migrate-all-the-emails: PHONY $(MAILHOMES)
 
 ## Instala y migra mailman
-mailman: PHONY /var/lib/mailman/archives/public/general
+mailman: PHONY /var/lib/mailman/archives/public/general /etc/default/fcgiwrap
+	# los archivos en public son symlinks a private
+	chmod o+x /var/lib/mailman/archives/private
 	newaliases
 	service postfix restart
 	service mailman restart
