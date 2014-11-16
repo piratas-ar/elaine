@@ -352,7 +352,7 @@ $(SITES): /etc/nginx/sites
 	echo "FCGI_CHILDREN=1" >$@
 	echo "FCGI_SOCKET=/var/run/fcgiwrap.sock" >>$@
 	echo "FCGI_USER=http" >>$@
-	echo "FCGI_GROUP=http" >>$@
+	echo "FCGI_GROUP=www-data" >>$@
 	echo "FCGI_SOCKET_OWNER=http" >>$@
 	echo "FCGI_SOCKET_GROUP=http" >>$@
 
