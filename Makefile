@@ -54,7 +54,9 @@ mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dove
 migrate-all-the-emails: PHONY $(MAILHOMES)
 
 ## Instala y migra mailman
-mailman: PHONY /var/lib/mailman/archives/public/general
+mailman: PHONY /var/lib/mailman/archives/public/general /etc/default/fcgiwrap
+	# los archivos en public son symlinks a private
+	chmod o+x /var/lib/mailman/archives/private
 	newaliases
 	service postfix restart
 	service mailman restart
@@ -347,6 +349,14 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	
 $(SITES): /etc/nginx/sites
 	test -f $@ || install -Dm640 $(BACKUP_DIR)$@ $@
+
+/etc/default/fcgiwrap:
+	echo "FCGI_CHILDREN=1" >$@
+	echo "FCGI_SOCKET=/var/run/fcgiwrap.sock" >>$@
+	echo "FCGI_USER=http" >>$@
+	echo "FCGI_GROUP=www-data" >>$@
+	echo "FCGI_SOCKET_OWNER=http" >>$@
+	echo "FCGI_SOCKET_GROUP=http" >>$@
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
