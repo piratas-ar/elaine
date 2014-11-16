@@ -7,6 +7,8 @@ APT_FLAGS?=--assume-yes
 USERS?=fauno seykron aza
 # El grupo que tiene permisos en sudo
 SUDO_GROUP=sudo
+# Versión de ubuntu
+UBUNTU=trusty
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
 # Ubicación de bundler
@@ -28,6 +30,10 @@ MAILMAN_HOST=asambleas.partidopirata.com.ar
 
 # Si postfix corre en una chroot
 POSTFIX_PROXY=proxy:
+
+# Sitios
+OLD_SITES=$(shell find $(BACKUP_DIR)/etc/nginx/sites -name '*.conf')
+SITES=$(patsubst $(BACKUP_DIR)%,%,$(OLD_SITES))
 
 # Reglas generales y de mantenimiento
 
@@ -52,6 +58,8 @@ mailman: PHONY /var/lib/mailman/archives/public/general
 	newaliases
 	service postfix restart
 	service mailman restart
+
+sitios: $(SITES) /srv/http
 
 # ---
 
@@ -129,15 +137,17 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	test -f ssh/$@.pub && cat ssh/$@.pub >/home/$@/.ssh/authorized_keys
 
 # Configura nginx
-/etc/nginx/nginx.conf: /usr/bin/git /usr/bin/find
-	apt-get install $(APT_FLAGS) nginx-passenger
-	rm -r /etc/nginx
+/etc/nginx/sites/$(HOSTNAME).conf: /usr/bin/git /usr/bin/find /etc/apt/sources.list.d/passenger.list
+	apt-get install $(APT_FLAGS) nginx-extras passenger
+	@echo "Los archivos anteriores de nginx quedan en /etc/nginx~"
+	@mv /etc/nginx /etc/nginx~
 	cd /etc && git clone https://github.com/fauno/nginx-config nginx
 	rm -v /etc/nginx/sites/*.conf
 # Seguridad
 	chown -R root:root /etc/nginx
 	find /etc/nginx -type d -exec chmod 750 {} \;
 	find /etc/nginx -type f -exec chmod 640 {} \;
+	touch $@
 
 # Instala ssl.git para administrar los certificados
 /etc/ssl/Makefile: $(BUNDLER) /usr/bin/git
@@ -299,10 +309,44 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 
 # Migrar el archivo de mailman
 /var/lib/mailman/archives/public/general: /var/lib/mailman
-	@echo "Testeando que MAILMAN_DIR no esté vacío"
+	@echo "Testeando que MAILMAN_DIR ni BACKUP_DIR estén vacíos"
 	test -n "$(MAILMAN_DIR)"
+	test -n "$(BACKUP_DIR)"
 	rsync -av "$(BACKUP_DIR)/$(MAILMAN_DIR)/" "$(MAILMAN_DIR)"
 	chown -R list:list "$(MAILMAN_DIR)"
+
+# Migrar los sitios
+/srv/http:
+	@echo "Testeando que BACKUP_DIR no esté vacío"
+	test -n "$(BACKUP_DIR)"
+	getent group http || groupadd --system http
+	getent passwd http || \
+	useradd --gid http --system \
+	        --no-create-home \
+					--shell /bin/false \
+					--home-dir /srv/http \
+					http
+	install -dm2750 --owner http --group http /srv/http
+	rsync -avHAX "$(BACKUP_DIR)/srv/http/" "/srv/http/"
+	# por ahora no migramos los usuarios de cada sitio
+	chown -R http:http /srv/http
+
+# Nginx-Passenger para ubuntu
+/etc/apt/sources.list.d/passenger.list:
+	echo "deb https://oss-binaries.phusionpassenger.com/apt/passenger $(UBUNTU) main" >$@
+	chmod 600 $@
+	chown root:root $@
+	apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 561F9B9CAC40B2F7
+	apt-get update $(APT_FLAGS)
+
+# Instalar PHP-FPM
+/etc/php5/fpm/php.ini:
+	apt-get install $(APT_FLAGS) php5-fpm php5-mysql
+	find /etc/php5 -type f -print0 | \
+		xargs -0 sed -i "s/www-data/http/g"
+	
+$(SITES): /etc/nginx/sites
+	test -f $@ || install -Dm640 $(BACKUP_DIR)$@ $@
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
