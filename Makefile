@@ -348,6 +348,14 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 $(SITES): /etc/nginx/sites
 	test -f $@ || install -Dm640 $(BACKUP_DIR)$@ $@
 
+/etc/default/fcgiwrap:
+	echo "FCGI_CHILDREN=1" >$@
+	echo "FCGI_SOCKET=/var/run/fcgiwrap.sock" >>$@
+	echo "FCGI_USER=http" >>$@
+	echo "FCGI_GROUP=http" >>$@
+	echo "FCGI_SOCKET_OWNER=http" >>$@
+	echo "FCGI_SOCKET_GROUP=http" >>$@
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
