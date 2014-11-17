@@ -248,6 +248,11 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%:
 	postconf -e $*='pcre:$@'
 	cat etc/postfix/$* >$@
 
+/etc/postfix/virtual:
+	echo "bouchard@partidopirata.com.ar infraestructura@asambleas.partidopirata.com.ar" >>$@
+	postmap $@
+	postconf -e virtual_alias_maps='hash:$@'
+
 /etc/postfix-policyd-spf-python/policyd-spf.conf:
 	apt-get install $(APT_FLAGS) postfix-policyd-spf-python
 	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/policyd-spf'
