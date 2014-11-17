@@ -314,7 +314,7 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 # sistema con login tiene una cuenta de correo.
 /etc/dovecot/dovecot.conf: /etc/postfix/main.cf /etc/prosody/prosody.cfg.lua
 	# servicios que se autentican en dovecot
-	groupadd --system auth
+	getent group auth || groupadd --system auth
 	gpasswd -a postfix auth
 	gpasswd -a prosody auth
 	apt-get install $(APT_FLAGS) dovecot-imapd dovecot-pop3d dovecot-sieve dovecot-lmtpd
