@@ -240,9 +240,14 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_received_header='yes'
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
 
+# Configura master.cf
+# ATENCION es un target phony porque master.cf siempre existe
 /etc/postfix/master.cf: PHONY /usr/sbin/postfix
 	grep -qw "^tlsproxy" $@ || cat etc/postfix/master.d/tlsproxy.cf >>$@
 	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
+	# para que postscreen funcione hay que comentar este
+	sed "s/^smtp .* smtpd/#&/" -i $@
+	grep -q "^smtp .* postscreen$$" $@ || cat etc/postfix/master.d/postscreen.cf >>$@
 
 # Chequeos de postfix que nos ahorran un montón de spam
 $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
