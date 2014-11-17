@@ -61,6 +61,17 @@ upgrade: PHONY /usr/bin/etckeeper
 ## Instala el servidor de correo
 mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cryptolist /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
 
+# Instala el servidor de correo con soporte para filtros
+# Va aparte porque modifica la infraestructura de postfix+dovecot,
+# haciendo que postfix entregue mail a dovecot en lugar de directamente
+# al filesystem
+mail-server-filters: PHONY mail-server
+	sed "s/^protocols = .*/& lmtp/" -i /etc/dovecot/dovecot.conf
+	sed "s,^\(auth_username_format = \).*/\1\%%Ln/" -i /etc/dovecot/conf.d/10-auth.conf
+	sed "s,unix_listener lmtp,unix_listener /var/spool/postfix/private/dovecot-lmtp," \
+		-i /etc/dovecot/conf.d/10-master.conf
+	postconf -e mailbox_transport='lmtp:unix:private/dovecot-lmtp'
+
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
 
