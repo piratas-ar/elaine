@@ -351,21 +351,26 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	find "$@" -type d -print0 | xargs -0 chmod 700
 	chown -R $*:$(GROUP) "$@"
 
+# Prosody
 /etc/prosody/prosody.cfg.lua:
 	apt-get install $(APT_FLAGS) prosody
+	gpasswd -a prosody keys
 
-/etc/prosody/conf.d/$(HOSTNAME).cfg.lua: /etc/prosody/prosody.cfg.lua
-	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
-	test -n "$(PASSWORD)"
-	test -n "$(GROUP)"
+/usr/lib/prosody/modules/mod_auth_dovecot.lua: /etc/prosody/prosody.cfg.lua
 	apt-get install $(APT_FLAGS) lua-dbi-mysql lua-sec mercurial
 	cd /etc/prosody && hg clone http://prosody-modules.googlecode.com/hg/ modules
 	apt-get purge $(APT_FLAGS) mercurial
+	chown -R prosody:prosody /etc/prosody/modules
+	ln -s /etc/prosody/modules/mod_auth_dovecot/*.lua /usr/lib/prosody/modules/
+
+/etc/prosody/conf.d/$(HOSTNAME).cfg.lua: /usr/lib/prosody/modules/mod_auth_dovecot.lua
+	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
+	test -n "$(PASSWORD)"
+	test -n "$(GROUP)"
 	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
 	    -e "s/{{GROUP}}/$(GROUP)/g" \
 			-e "s/{{PASSWORD}}/$(PASSWORD)/g" \
 			etc/prosody/conf.d/hostname.cfg.lua >$@
-	gpasswd -a prosody keys
 	chown prosody:prosody $@
 	chmod 640 $@
 	echo "create database prosody; grant all privileges on prosody.* to 'prosody' identified by '$(PASSWORD)'; flush privileges;" | $(MYSQL)
