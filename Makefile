@@ -28,6 +28,7 @@ MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
 MAILMAN_DIR=/var/lib/mailman
 MAILMAN_HOST=asambleas.partidopirata.com.ar
 
+# Postfix
 # Si postfix corre en una chroot
 POSTFIX_PROXY=proxy:
 # Chequeos antispam
@@ -54,7 +55,7 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dovecot.conf
+mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cryptolist /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
 
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
@@ -244,23 +245,27 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
 
 # Chequeos de postfix que nos ahorran un montón de spam
-$(POSTFIX_CHECKS_FILES): /etc/postfix/%:
+$(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 	postconf -e $*='pcre:$@'
 	cat etc/postfix/$* >$@
 
-/etc/postfix/virtual:
+# Inicia la base de datos de direcciones virtuales
+/etc/postfix/virtual: /etc/postfix/main.cf
 	echo "bouchard@partidopirata.com.ar infraestructura@asambleas.partidopirata.com.ar" >>$@
 	postmap $@
 	postconf -e virtual_alias_maps='hash:$@'
 
-/etc/postfix-policyd-spf-python/policyd-spf.conf:
+# Chequea SPF
+/etc/postfix-policyd-spf-python/policyd-spf.conf: /etc/postfix/main.cf
 	apt-get install $(APT_FLAGS) postfix-policyd-spf-python
 	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/policyd-spf'
 	postconf -e policyd-spf_time_limit='3600s'
 	grep -q "^policyd-spf" /etc/postfix/master.cf || \
 		cat etc/postfix/master.d/policyd-spf.cf >>/etc/postfix/master.cf
 
-/usr/bin/cryptolist:
+# Cryptolist hace greylisting con diferentes pesos dependiendo de si la
+# conexión fue cifrada
+/usr/bin/cryptolist: /etc/postfix/main.cf
 	apt-get install $(APT_FLAGS) libdb-dev
 	mkdir -p tmp
 	git clone https://github.com/dtaht/Cryptolisting tmp
