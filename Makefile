@@ -70,7 +70,7 @@ mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cr
 # al filesystem
 mail-server-filters: PHONY mail-server $(SIEVE_FILES)
 	sed "s/^protocols = .*/& lmtp/" -i /etc/dovecot/dovecot.conf
-	sed "s,^\(auth_username_format = \).*/\1\%%Ln/" -i /etc/dovecot/conf.d/10-auth.conf
+	sed "s/^\(auth_username_format = \).*/\1%%Ln/" -i /etc/dovecot/conf.d/10-auth.conf
 	sed "s,unix_listener lmtp,unix_listener /var/spool/postfix/private/dovecot-lmtp," \
 		-i /etc/dovecot/conf.d/10-master.conf
 	postconf -e mailbox_transport='lmtp:unix:private/dovecot-lmtp'
