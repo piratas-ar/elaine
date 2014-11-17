@@ -77,6 +77,9 @@ sitios: $(SITES) /srv/http
 # Instala el webmail
 webmail: /etc/roundcube/main.inc.php /etc/sudoers.d/roundcube
 
+# Instala jabber
+jabber: /etc/prosody/conf.d/$(HOSTNAME).cfg.lua /etc/prosody/$(GROUP).txt
+
 # ---
 
 # Reglas por archivo
