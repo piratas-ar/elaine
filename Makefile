@@ -350,6 +350,21 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 /etc/prosody/prosody.cfg.lua:
 	apt-get install $(APT_FLAGS) prosody
 
+/etc/prosody/conf.d/$(HOSTNAME).cfg.lua: /etc/prosody/prosody.cfg.lua
+	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
+	test -n "$(PASSWORD)"
+	test -n "$(GROUP)"
+	apt-get install $(APT_FLAGS) lua-dbi-mysql lua-sec mercurial
+	cd /etc/prosody && hg clone http://prosody-modules.googlecode.com/hg/ modules
+	apt-get purge $(APT_FLAGS) mercurial
+	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
+	    -e "s/{{GROUP}}/$(GROUP)/g" \
+			-e "s/{{PASSWORD}}/$(PASSWORD)/g" \
+			etc/prosody/conf.d/hostname.cfg.lua >$@
+	gpasswd -a prosody keys
+	chown prosody:prosody $@
+	chmod 640 $@
+
 # Instalar mailman
 /var/lib/mailman: /etc/postfix/main.cf
 	apt-get install $(APT_FLAGS) mailman
