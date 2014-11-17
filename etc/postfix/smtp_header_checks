@@ -1,0 +1,7 @@
+/^\s*(Received: from)[^\n]*(.*)/ REPLACE $1 [127.0.0.1] (localhost [127.0.0.1])$2
+/^\s*(Received: by)[^\n]*(.*)/ REPLACE $1 [127.0.0.1] (localhost [127.0.0.1])$2
+/^\s*Received: by/      IGNORE
+/^\s*User-Agent/        IGNORE
+/^\s*X-Enigmail/        IGNORE
+/^\s*X-Mailer/          IGNORE
+/^\s*X-Originating-IP/  IGNORE

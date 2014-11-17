@@ -28,8 +28,12 @@ MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
 MAILMAN_DIR=/var/lib/mailman
 MAILMAN_HOST=asambleas.partidopirata.com.ar
 
+# Postfix
 # Si postfix corre en una chroot
 POSTFIX_PROXY=proxy:
+# Chequeos antispam
+POSTFIX_CHECKS=header body smtp_header
+POSTFIX_CHECKS_FILES=$(patsubst %,/etc/postfix/%_checks,$(POSTFIX_CHECKS))
 
 # Sitios
 OLD_SITES=$(shell find $(BACKUP_DIR)/etc/nginx/sites -name '*.conf')
@@ -51,7 +55,7 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/postfix/master.cf /etc/postfix/main.cf /etc/dovecot/dovecot.conf
+mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cryptolist /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
 
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
@@ -236,9 +240,49 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_received_header='yes'
 	postconf -e smtpd_tls_session_cache_timeout='3600s'
 
+# Configura master.cf
+# ATENCION es un target phony porque master.cf siempre existe
 /etc/postfix/master.cf: PHONY /usr/sbin/postfix
 	grep -qw "^tlsproxy" $@ || cat etc/postfix/master.d/tlsproxy.cf >>$@
 	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
+	# para que postscreen funcione hay que comentar este
+	sed "s/^smtp .* smtpd/#&/" -i $@
+	grep -q "^smtp .* postscreen$$" $@ || cat etc/postfix/master.d/postscreen.cf >>$@
+
+# Chequeos de postfix que nos ahorran un montón de spam
+$(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
+	postconf -e $*='pcre:$@'
+	cat etc/postfix/$* >$@
+
+# Inicia la base de datos de direcciones virtuales
+/etc/postfix/virtual: /etc/postfix/main.cf
+	echo "bouchard@partidopirata.com.ar infraestructura@asambleas.partidopirata.com.ar" >>$@
+	postmap $@
+	postconf -e virtual_alias_maps='hash:$@'
+
+# Chequea SPF
+/etc/postfix-policyd-spf-python/policyd-spf.conf: /etc/postfix/main.cf
+	apt-get install $(APT_FLAGS) postfix-policyd-spf-python
+	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/policyd-spf'
+	postconf -e policyd-spf_time_limit='3600s'
+	grep -q "^policyd-spf" /etc/postfix/master.cf || \
+		cat etc/postfix/master.d/policyd-spf.cf >>/etc/postfix/master.cf
+
+# Cryptolist hace greylisting con diferentes pesos dependiendo de si la
+# conexión fue cifrada
+/usr/bin/cryptolist: /etc/postfix/main.cf
+	apt-get install $(APT_FLAGS) libdb-dev
+	mkdir -p tmp
+	git clone https://github.com/dtaht/Cryptolisting tmp
+	cd tmp && autoreconf -fi
+	cd tmp && ./configure --localstatedir=/var
+	cd tmp && make
+	apt-get purge $(APT_FLAGS) libdb-dev
+	install -Dm755 tmp/cryptolist /usr/bin/cryptolist
+	install -dm750 --owner nobody --group nogroup /var/lib/cryptolist
+	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/cryptolist'
+	grep -qw "^cryptolist" /etc/postfix/master.cf || \
+		cat etc/postfix/master.d/cryptolist.cf >>/etc/postfix/master.cf
 
 # Instala y configura dovecot
 #

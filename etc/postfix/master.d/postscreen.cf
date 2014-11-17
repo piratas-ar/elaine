@@ -1,0 +1,3 @@
+# Habilitar postscreen
+smtp      inet  n       -       n       -       1       postscreen
+smtpd     pass  -       -       n       -       -       smtpd
