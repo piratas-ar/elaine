@@ -1,0 +1,9 @@
+#!/bin/bash
+GROUP={{GROUP}}
+HOSTNAME={{HOSTNAME}}
+FILE="/etc/prosody/${GROUP}.txt"
+
+echo "[${GROUP}]" >"${FILE}"
+# requiere libuser
+lid -ng "${GROUP}" | tr -d " " | sed "s/.*/&@${HOSTNAME}=&/" >>"${FILE}"
+

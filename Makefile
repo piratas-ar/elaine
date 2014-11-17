@@ -11,6 +11,10 @@ SUDO_GROUP=sudo
 UBUNTU=trusty
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
+# MySQL
+# El comando para ejecutar consultas en mysql (sin contraseña)
+MYSQL=mysql
+
 # Ubicación de bundler
 BUNDLER=/usr/local/bin/bundle
 # Paquete de gnutls
@@ -72,6 +76,9 @@ sitios: $(SITES) /srv/http
 
 # Instala el webmail
 webmail: /etc/roundcube/main.inc.php /etc/sudoers.d/roundcube
+
+# Instala jabber
+jabber: /etc/prosody/conf.d/$(HOSTNAME).cfg.lua /etc/prosody/$(GROUP).txt
 
 # ---
 
@@ -347,12 +354,46 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	find "$@" -type d -print0 | xargs -0 chmod 700
 	chown -R $*:$(GROUP) "$@"
 
+# Prosody
 /etc/prosody/prosody.cfg.lua:
 	apt-get install $(APT_FLAGS) prosody
+	gpasswd -a prosody keys
+
+/usr/lib/prosody/modules/mod_auth_dovecot.lua: /etc/prosody/prosody.cfg.lua
+	apt-get install $(APT_FLAGS) lua-dbi-mysql lua-sec mercurial
+	cd /etc/prosody && hg clone http://prosody-modules.googlecode.com/hg/ modules
+	apt-get purge $(APT_FLAGS) mercurial
+	chown -R prosody:prosody /etc/prosody/modules
+	ln -s /etc/prosody/modules/mod_auth_dovecot/*.lua /usr/lib/prosody/modules/
+
+/etc/prosody/conf.d/$(HOSTNAME).cfg.lua: /usr/lib/prosody/modules/mod_auth_dovecot.lua
+	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
+	test -n "$(PASSWORD)"
+	test -n "$(GROUP)"
+	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
+	    -e "s/{{GROUP}}/$(GROUP)/g" \
+			-e "s/{{PASSWORD}}/$(PASSWORD)/g" \
+			etc/prosody/conf.d/hostname.cfg.lua >$@
+	chown prosody:prosody $@
+	chmod 640 $@
+	echo "create database prosody; grant all privileges on prosody.* to 'prosody' identified by '$(PASSWORD)'; flush privileges;" | $(MYSQL)
+
+# Script que actualiza el group_file
+/etc/cron.daily/update_prosody_groups: /%:
+	apt-get install $(APT_FLAGS) libuser
+	install -Dm750 $* $@
+	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
+	    -e "s/{{GROUP}}/$(GROUP)/g" \
+			$* >$@
+
+/etc/prosody/$(GROUP).txt: /etc/prosody/prosody.cfg.lua /etc/cron.daily/update_prosody_groups
+	touch $@
+	chmod 640 $@
+	chown prosody:prosody $@
+	/etc/cron.daily/update_prosody_groups
 
 # Instalar mailman
 /var/lib/mailman: /etc/postfix/main.cf
-	apt-get install $(APT_FLAGS) mailman
 	cat "$(BACKUP_DIR)/usr/lib/mailman/Mailman/mm_cfg.py" >/etc/mailman/mm_cfg.py
 	postconf -e relay_domains='$(MAILMAN_HOST)'
 	postconf -e transport_maps='hash:/etc/postfix/transport'
