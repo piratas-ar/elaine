@@ -1,2 +1,3 @@
 # Spam
 /\/unsub?scribe\.php\?/ DISCARD
+/\/desub?scribir\.php\?/ DISCARD
