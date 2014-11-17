@@ -46,6 +46,9 @@ SITES=$(patsubst $(BACKUP_DIR)%,%,$(OLD_SITES))
 # Plugins de collectd
 COLLECTD_PLUGINS=syslog cpu entropy interface load memory network uptime users
 
+# Filtros de mail
+SIEVE_FILES=$(wildcard etc/dovecot/sieve/*.sieve) /etc/dovecot/conf.d/90-sieve.conf
+
 # Reglas generales y de mantenimiento
 
 ## Crea todos los usuarios
@@ -65,9 +68,9 @@ mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cr
 # Va aparte porque modifica la infraestructura de postfix+dovecot,
 # haciendo que postfix entregue mail a dovecot en lugar de directamente
 # al filesystem
-mail-server-filters: PHONY mail-server
+mail-server-filters: PHONY mail-server $(SIEVE_FILES)
 	sed "s/^protocols = .*/& lmtp/" -i /etc/dovecot/dovecot.conf
-	sed "s,^\(auth_username_format = \).*/\1\%%Ln/" -i /etc/dovecot/conf.d/10-auth.conf
+	sed "s/^\(auth_username_format = \).*/\1%%Ln/" -i /etc/dovecot/conf.d/10-auth.conf
 	sed "s,unix_listener lmtp,unix_listener /var/spool/postfix/private/dovecot-lmtp," \
 		-i /etc/dovecot/conf.d/10-master.conf
 	postconf -e mailbox_transport='lmtp:unix:private/dovecot-lmtp'
@@ -300,6 +303,7 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 	cd tmp && make
 	apt-get purge $(APT_FLAGS) libdb-dev
 	install -Dm755 tmp/cryptolist /usr/bin/cryptolist
+	rm -rf tmp
 	install -dm750 --owner nobody --group nogroup /var/lib/cryptolist
 	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/cryptolist'
 	grep -qw "^cryptolist" /etc/postfix/master.cf || \
@@ -311,7 +315,7 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 # sistema con login tiene una cuenta de correo.
 /etc/dovecot/dovecot.conf: /etc/postfix/main.cf /etc/prosody/prosody.cfg.lua
 	# servicios que se autentican en dovecot
-	groupadd --system auth
+	getent group auth || groupadd --system auth
 	gpasswd -a postfix auth
 	gpasswd -a prosody auth
 	apt-get install $(APT_FLAGS) dovecot-imapd dovecot-pop3d dovecot-sieve dovecot-lmtpd
@@ -334,6 +338,10 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 # Solo los piratas pueden loguearse en dovecot
 	grep -q "pam_succeed_if\.so" /etc/pam.d/dovecot || \
 		sed '2s/^/auth required pam_succeed_if.so user ingroup $(GROUP)\n&/' -i /etc/pam.d/dovecot
+	
+# Instala los archivos de sieve si estaban perdidos
+$(SIEVE_FILES):
+	install -Dm640 --owner dovecot --group dovecot $@ /$@
 
 # Cada pirata tiene un maildir
 /etc/skel/Maildir:
