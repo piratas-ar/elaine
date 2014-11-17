@@ -339,8 +339,8 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 		sed '2s/^/auth required pam_succeed_if.so user ingroup $(GROUP)\n&/' -i /etc/pam.d/dovecot
 	
 # Instala los archivos de sieve si estaban perdidos
-$(SIEVE_FILES): /%:
-	install -Dm640 --owner dovecot --group dovecot $* $@
+$(SIEVE_FILES):
+	install -Dm640 --owner dovecot --group dovecot $@ /$@
 
 # Cada pirata tiene un maildir
 /etc/skel/Maildir:
