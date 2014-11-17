@@ -11,6 +11,10 @@ SUDO_GROUP=sudo
 UBUNTU=trusty
 PACKAGES?=rsync git make ruby find postfix sed etckeeper haveged
 
+# MySQL
+# El comando para ejecutar consultas en mysql (sin contraseña)
+MYSQL=mysql
+
 # Ubicación de bundler
 BUNDLER=/usr/local/bin/bundle
 # Paquete de gnutls
@@ -364,10 +368,10 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	gpasswd -a prosody keys
 	chown prosody:prosody $@
 	chmod 640 $@
+	echo "create database prosody; grant all privileges on prosody.* to 'prosody' identified by '$(PASSWORD)'; flush privileges;" | $(MYSQL)
 
 # Instalar mailman
 /var/lib/mailman: /etc/postfix/main.cf
-	apt-get install $(APT_FLAGS) mailman
 	cat "$(BACKUP_DIR)/usr/lib/mailman/Mailman/mm_cfg.py" >/etc/mailman/mm_cfg.py
 	postconf -e relay_domains='$(MAILMAN_HOST)'
 	postconf -e transport_maps='hash:/etc/postfix/transport'
