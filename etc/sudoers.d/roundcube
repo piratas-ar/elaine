@@ -1,0 +1,2 @@
+# Permite a roundcube cambiar mails
+http     ALL = (root) NOPASSWD: /usr/share/doc/roundcube-plugins/examples/chpass-wrapper.py

@@ -70,6 +70,9 @@ mailman: PHONY /var/lib/mailman/archives/public/general /etc/default/fcgiwrap
 
 sitios: $(SITES) /srv/http
 
+# Instala el webmail
+webmail: /etc/roundcube/main.inc.php /etc/sudoers.d/roundcube
+
 # ---
 
 # Reglas por archivo
@@ -427,6 +430,12 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	chown root:http /etc/roundcube/*.php
 	sed "s/{{HOSTNAME}}/$(HOSTNAME)/g" etc/roundcube/main.inc.php >>$@
 	echo "$$rcmail_config['des_key'] = '$(des_key)';" >>$@
+
+# Permite a los piratas cambiar sus contraseñas desde el webmail
+/etc/sudoers.d/roundcube:
+	cat etc/sudoers.d/roundcube >$@
+	chmod +x /usr/share/doc/roundcube-plugins/examples/chpass-wrapper.py
+	cat etc/roundcube/passwd.inc.php >>/etc/roundcube/main.inc.php
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
