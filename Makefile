@@ -35,6 +35,9 @@ POSTFIX_PROXY=proxy:
 OLD_SITES=$(shell find $(BACKUP_DIR)/etc/nginx/sites -name '*.conf')
 SITES=$(patsubst $(BACKUP_DIR)%,%,$(OLD_SITES))
 
+# Plugins de collectd
+COLLECTD_PLUGINS=syslog cpu entropy interface load memory network uptime users
+
 # Reglas generales y de mantenimiento
 
 ## Crea todos los usuarios
@@ -357,6 +360,15 @@ $(SITES): /etc/nginx/sites
 	echo "FCGI_GROUP=www-data" >>$@
 	echo "FCGI_SOCKET_OWNER=http" >>$@
 	echo "FCGI_SOCKET_GROUP=http" >>$@
+
+/etc/collectd/collectd.conf:
+	apt-get install $(APT_FLAGS) collectd-core
+	for plugin in $(COLLECTD_PLUGINS); do \
+		echo "LoadPlugin $$plugin" >>$@ ;\
+	done
+	echo '<Plugin network>' >>$@
+	echo 'Server "2001:1291:200:83ab:249a:2ef4:9cad:1d9e" "25826"' >>$@
+	echo '</Plugin>' >>$@
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
