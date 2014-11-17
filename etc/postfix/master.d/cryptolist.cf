@@ -1,0 +1,3 @@
+# Habilitar cryptolist
+# https://github.com/dtaht/Cryptolisting
+cryptolist unix - n n - - spawn user=nobody argv=/usr/bin/cryptolist

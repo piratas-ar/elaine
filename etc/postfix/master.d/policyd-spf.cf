@@ -1,0 +1,2 @@
+# Habilita policyd-spf
+policyd-spf  unix  -       n       n       -       0       spawn user=nobody argv=/usr/bin/policyd-spf

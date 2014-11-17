@@ -1,0 +1,12 @@
+# Descartar spam de linkedin
+/^X-LinkedIn.*/ DISCARD
+
+# Este servidor siempre manda spam
+/^From: NOREPLY.*@gmx.com/  DISCARD
+/^From: noreply.*@gmx.com/  DISCARD
+/^From: NORESPONDERACA.*/   DISCARD
+/^From: NORESPONDACA.*/     DISCARD
+/^From: norespondaqui.*/    DISCARD
+
+# No filtrar el id de usuario
+/^Received:(.+userid )([0-9]\+)(.*)$/ REPLACE Received:${1}65000${3}

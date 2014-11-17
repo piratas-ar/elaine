@@ -30,6 +30,9 @@ MAILMAN_HOST=asambleas.partidopirata.com.ar
 
 # Si postfix corre en una chroot
 POSTFIX_PROXY=proxy:
+# Chequeos antispam
+POSTFIX_CHECKS=header body smtp_header
+POSTFIX_CHECKS_FILES=$(patsubst %,/etc/postfix/%_checks,$(POSTFIX_CHECKS))
 
 # Sitios
 OLD_SITES=$(shell find $(BACKUP_DIR)/etc/nginx/sites -name '*.conf')
@@ -239,6 +242,32 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 /etc/postfix/master.cf: PHONY /usr/sbin/postfix
 	grep -qw "^tlsproxy" $@ || cat etc/postfix/master.d/tlsproxy.cf >>$@
 	grep -qw "^submission" $@ || cat etc/postfix/master.d/submission.cf >>$@
+
+# Chequeos de postfix que nos ahorran un montón de spam
+$(POSTFIX_CHECKS_FILES): /etc/postfix/%:
+	postconf -e $*='pcre:$@'
+	cat etc/postfix/$* >$@
+
+/etc/postfix-policyd-spf-python/policyd-spf.conf:
+	apt-get install $(APT_FLAGS) postfix-policyd-spf-python
+	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/policyd-spf'
+	postconf -e policyd-spf_time_limit='3600s'
+	grep -q "^policyd-spf" /etc/postfix/master.cf || \
+		cat etc/postfix/master.d/policyd-spf.cf >>/etc/postfix/master.cf
+
+/usr/bin/cryptolist:
+	apt-get install $(APT_FLAGS) libdb-dev
+	mkdir -p tmp
+	git clone https://github.com/dtaht/Cryptolisting tmp
+	cd tmp && autoreconf -fi
+	cd tmp && ./configure --localstatedir=/var
+	cd tmp && make
+	apt-get purge $(APT_FLAGS) libdb-dev
+	install -Dm755 tmp/cryptolist /usr/bin/cryptolist
+	install -dm750 --owner nobody --group nogroup /var/lib/cryptolist
+	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/cryptolist'
+	grep -qw "^cryptolist" /etc/postfix/master.cf || \
+		cat etc/postfix/master.d/cryptolist.cf >>/etc/postfix/master.cf
 
 # Instala y configura dovecot
 #
