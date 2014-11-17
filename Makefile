@@ -139,8 +139,8 @@ $(BUNDLER):
 
 # Crea los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
-	getent group users || groupadd --system users
-	getent passwd $@ || useradd -m -g users -G $(SUDO_GROUP) $@
+	getent group users || groupadd --system $(GROUP)
+	getent passwd $@ || useradd -m -g $(GROUP) -G $(SUDO_GROUP) $@
 	getent passwd $@ && gpasswd -a $@ $(SUDO_GROUP)
 	getent passwd $@ && chsh --shell /bin/bash $@
 # Inseguridad
@@ -313,6 +313,9 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 	postconf -e smtp_sasl_security_options='noanonymous'
 	postconf -e broken_sasl_auth_clients='yes'
 	postconf -e smtpd_sasl_local_domain='$$myhostname'
+# Solo los piratas pueden loguearse en dovecot
+	grep -q "pam_succeed_if\.so" /etc/pam.d/dovecot || \
+		sed '2s/^/auth required pam_succeed_if.so user ingroup $(GROUP)\n&/' -i /etc/pam.d/dovecot
 
 # Cada pirata tiene un maildir
 /etc/skel/Maildir:
