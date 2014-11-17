@@ -302,6 +302,7 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 	cd tmp && ./configure --localstatedir=/var
 	cd tmp && make
 	apt-get purge $(APT_FLAGS) libdb-dev
+	rm -rf tmp
 	install -Dm755 tmp/cryptolist /usr/bin/cryptolist
 	install -dm750 --owner nobody --group nogroup /var/lib/cryptolist
 	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/cryptolist'
