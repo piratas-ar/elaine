@@ -370,6 +370,20 @@ $(SITES): /etc/nginx/sites
 	echo 'Server "2001:1291:200:83ab:249a:2ef4:9cad:1d9e" "25826"' >>$@
 	echo '</Plugin>' >>$@
 
+/etc/php5/fpm/conf.d/mcrypt.ini:
+	ln -s /etc/php5/mods-available/mcrypt.ini $@
+
+# Generar la cadena de cifrado de contraseñas
+des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | head -n1)
+# Instalar y configurar roundcube
+/etc/roundcube/main.inc.php: /etc/php5/fpm/conf.d/mcrypt.ini
+	# php5 evita que se instale apache
+	apt-get install $(APT_FLAGS) php5 roundcube rouncube-plugins roundcube-plugins-extra
+	chown -R http:http /var/lib/roundcube/temp /var/log/roundcube
+	chown root:http /etc/roundcube/*.php
+	sed "s/{{HOSTNAME}}/$(HOSTNAME)/g" etc/roundcube/main.inc.php >>$@
+	echo "$$rcmail_config['des_key'] = '$(des_key)';" >>$@
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
