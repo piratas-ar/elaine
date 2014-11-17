@@ -375,6 +375,20 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
 	chmod 640 $@
 	echo "create database prosody; grant all privileges on prosody.* to 'prosody' identified by '$(PASSWORD)'; flush privileges;" | $(MYSQL)
 
+# Script que actualiza el group_file
+/etc/cron.daily/update_prosody_groups: /%:
+	apt-get install $(APT_FLAGS) libuser
+	install -Dm750 $* $@
+	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
+	    -e "s/{{GROUP}}/$(GROUP)/g" \
+			$* >$@
+
+/etc/prosody/$(GROUP).txt: /etc/prosody/prosody.cfg.lua /etc/cron.daily/update_prosody_groups
+	touch $@
+	chmod 640 $@
+	chown prosody:prosody $@
+	/etc/cron.daily/update_prosody_groups
+
 # Instalar mailman
 /var/lib/mailman: /etc/postfix/main.cf
 	cat "$(BACKUP_DIR)/usr/lib/mailman/Mailman/mm_cfg.py" >/etc/mailman/mm_cfg.py
