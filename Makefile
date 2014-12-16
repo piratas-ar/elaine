@@ -206,6 +206,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	apt-get install $(APT_FLAGS) postfix-pcre
 	sed "s/@@DISTRO@@/$(GROUP)/g" /usr/share/postfix/main.cf.dist >$@
 	gpasswd -a postfix keys
+	postconf -e recipient_delimiter='+'
 	postconf -e sendmail_path='/usr/sbin/sendmail'
 	postconf -e newaliases_path='/usr/bin/newaliases'
 	postconf -e mailq_path='/usr/bin/mailq'
