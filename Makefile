@@ -46,7 +46,13 @@ SITES=$(patsubst $(BACKUP_DIR)%,%,$(OLD_SITES))
 # Plugins de collectd
 COLLECTD_PLUGINS=syslog cpu entropy interface load memory network uptime users
 
+# Filtros de mail
+SIEVE_FILES=$(wildcard etc/dovecot/sieve/*.sieve) /etc/dovecot/conf.d/90-sieve.conf
+
 # Reglas generales y de mantenimiento
+
+## Crea una pirata
+pirata: /home/$(PIRATA)
 
 ## Crea todos los usuarios
 users: PHONY $(USERS)
@@ -59,7 +65,18 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cryptolist /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
+mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
+
+# Instala el servidor de correo con soporte para filtros
+# Va aparte porque modifica la infraestructura de postfix+dovecot,
+# haciendo que postfix entregue mail a dovecot en lugar de directamente
+# al filesystem
+mail-server-filters: PHONY mail-server $(SIEVE_FILES)
+	sed "s/^protocols = .*/& lmtp/" -i /etc/dovecot/dovecot.conf
+	sed "s/^\(auth_username_format = \).*/\1%%Ln/" -i /etc/dovecot/conf.d/10-auth.conf
+	sed "s,unix_listener lmtp,unix_listener /var/spool/postfix/private/dovecot-lmtp," \
+		-i /etc/dovecot/conf.d/10-master.conf
+	postconf -e mailbox_transport='lmtp:unix:private/dovecot-lmtp'
 
 ## Migra todos los correos
 migrate-all-the-emails: PHONY $(MAILHOMES)
@@ -103,6 +120,24 @@ jabber: /etc/prosody/conf.d/$(HOSTNAME).cfg.lua /etc/prosody/$(GROUP).txt
 # Setear el hostname
 /etc/hostname:
 	echo $(HOSTNAME) >$@
+
+/home/$(PIRATA): /home/%:
+	@echo "Testeando que hayamos seteado PIRATA, PASSWORD y GROUP"
+	test -n "$(PIRATA)"
+	test -n "$(PASSWORD)"
+	test -n "$(GROUP)"
+	getent group $(GROUP) || groupadd --system $(GROUP)
+# Los piratas se crean sin acceso por shell aunque después se puede
+# cambiar
+	getent passwd $* || \
+		useradd --home-dir $@ \
+		        --create-home \
+						--shell /bin/false \
+						--gid $(GROUP) \
+						$* && \
+		echo "$*:$(PASSWORD)" | chpasswd
+# Los homes son solo accesibles para cada pirata
+	chmod 700 $@
 
 # Instalar paquetes con ejecutables del mismo nombre
 # La primera parte le agrega el path completo a cada uno de los binarios
@@ -192,6 +227,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	apt-get install $(APT_FLAGS) postfix-pcre
 	sed "s/@@DISTRO@@/$(GROUP)/g" /usr/share/postfix/main.cf.dist >$@
 	gpasswd -a postfix keys
+	postconf -e recipient_delimiter='+'
 	postconf -e sendmail_path='/usr/sbin/sendmail'
 	postconf -e newaliases_path='/usr/bin/newaliases'
 	postconf -e mailq_path='/usr/bin/mailq'
@@ -280,15 +316,17 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 
 # Cryptolist hace greylisting con diferentes pesos dependiendo de si la
 # conexión fue cifrada
-/usr/bin/cryptolist: /etc/postfix/main.cf
+/usr/bin/cryptolist:
 	apt-get install $(APT_FLAGS) libdb-dev
 	mkdir -p tmp
 	git clone https://github.com/dtaht/Cryptolisting tmp
+	cd tmp && git checkout 11f2273a098c2ae1a71bf17da14b72bdbd5c3eca
 	cd tmp && autoreconf -fi
 	cd tmp && ./configure --localstatedir=/var
 	cd tmp && make
 	apt-get purge $(APT_FLAGS) libdb-dev
 	install -Dm755 tmp/cryptolist /usr/bin/cryptolist
+	rm -rf tmp
 	install -dm750 --owner nobody --group nogroup /var/lib/cryptolist
 	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/cryptolist'
 	grep -qw "^cryptolist" /etc/postfix/master.cf || \
@@ -300,7 +338,7 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 # sistema con login tiene una cuenta de correo.
 /etc/dovecot/dovecot.conf: /etc/postfix/main.cf /etc/prosody/prosody.cfg.lua
 	# servicios que se autentican en dovecot
-	groupadd --system auth
+	getent group auth || groupadd --system auth
 	gpasswd -a postfix auth
 	gpasswd -a prosody auth
 	apt-get install $(APT_FLAGS) dovecot-imapd dovecot-pop3d dovecot-sieve dovecot-lmtpd
@@ -323,6 +361,10 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 # Solo los piratas pueden loguearse en dovecot
 	grep -q "pam_succeed_if\.so" /etc/pam.d/dovecot || \
 		sed '2s/^/auth required pam_succeed_if.so user ingroup $(GROUP)\n&/' -i /etc/pam.d/dovecot
+	
+# Instala los archivos de sieve si estaban perdidos
+$(SIEVE_FILES):
+	install -Dm640 --owner dovecot --group dovecot $@ /$@
 
 # Cada pirata tiene un maildir
 /etc/skel/Maildir:
@@ -330,25 +372,10 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 
 # Migra los correos de cada usuario creándoles cuentas en el sistema con
 # una contraseña por defecto
-$(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
-	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
-	test -n "$(PASSWORD)"
-	test -n "$(GROUP)"
-	getent group $(GROUP) || groupadd --system $(GROUP)
-# Los piratas se crean sin acceso por shell aunque después se puede
-# cambiar
-	getent passwd $* || \
-		useradd --home-dir /home/$* \
-		        --create-home \
-						--shell /bin/false \
-						--gid $(GROUP) \
-						$* && \
-		echo "$*:$(PASSWORD)" | chpasswd
+$(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir /home/%
 # Migra los correos
 	rsync -av "$(MAILDIRS)/$*/" "$@/"
 # Corrige permisos
-# Los homes son solo accesibles para cada pirata
-	chmod 700 /home/$*
 # Los mails también
 	find "$@" -type f -print0 | xargs -0 chmod 600
 	find "$@" -type d -print0 | xargs -0 chmod 700
