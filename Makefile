@@ -62,7 +62,7 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /usr/bin/cryptolist /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
+mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
 
 # Instala el servidor de correo con soporte para filtros
 # Va aparte porque modifica la infraestructura de postfix+dovecot,
@@ -294,10 +294,11 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 
 # Cryptolist hace greylisting con diferentes pesos dependiendo de si la
 # conexión fue cifrada
-/usr/bin/cryptolist: /etc/postfix/main.cf
+/usr/bin/cryptolist:
 	apt-get install $(APT_FLAGS) libdb-dev
 	mkdir -p tmp
 	git clone https://github.com/dtaht/Cryptolisting tmp
+	cd tmp && git checkout 11f2273a098c2ae1a71bf17da14b72bdbd5c3eca
 	cd tmp && autoreconf -fi
 	cd tmp && ./configure --localstatedir=/var
 	cd tmp && make
