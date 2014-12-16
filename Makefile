@@ -51,6 +51,9 @@ SIEVE_FILES=$(wildcard etc/dovecot/sieve/*.sieve) /etc/dovecot/conf.d/90-sieve.c
 
 # Reglas generales y de mantenimiento
 
+## Crea una pirata
+pirata: /home/$(PIRATA)
+
 ## Crea todos los usuarios
 users: PHONY $(USERS)
 
@@ -117,6 +120,24 @@ jabber: /etc/prosody/conf.d/$(HOSTNAME).cfg.lua /etc/prosody/$(GROUP).txt
 # Setear el hostname
 /etc/hostname:
 	echo $(HOSTNAME) >$@
+
+/home/$(PIRATA): /home/%:
+	@echo "Testeando que hayamos seteado PIRATA, PASSWORD y GROUP"
+	test -n "$(PIRATA)"
+	test -n "$(PASSWORD)"
+	test -n "$(GROUP)"
+	getent group $(GROUP) || groupadd --system $(GROUP)
+# Los piratas se crean sin acceso por shell aunque después se puede
+# cambiar
+	getent passwd $* || \
+		useradd --home-dir $@ \
+		        --create-home \
+						--shell /bin/false \
+						--gid $(GROUP) \
+						$* && \
+		echo "$*:$(PASSWORD)" | chpasswd
+# Los homes son solo accesibles para cada pirata
+	chmod 700 $@
 
 # Instalar paquetes con ejecutables del mismo nombre
 # La primera parte le agrega el path completo a cada uno de los binarios
@@ -351,25 +372,10 @@ $(SIEVE_FILES):
 
 # Migra los correos de cada usuario creándoles cuentas en el sistema con
 # una contraseña por defecto
-$(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir
-	@echo "Testeando que hayamos seteado PASSWORD y GROUP"
-	test -n "$(PASSWORD)"
-	test -n "$(GROUP)"
-	getent group $(GROUP) || groupadd --system $(GROUP)
-# Los piratas se crean sin acceso por shell aunque después se puede
-# cambiar
-	getent passwd $* || \
-		useradd --home-dir /home/$* \
-		        --create-home \
-						--shell /bin/false \
-						--gid $(GROUP) \
-						$* && \
-		echo "$*:$(PASSWORD)" | chpasswd
+$(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir /home/%
 # Migra los correos
 	rsync -av "$(MAILDIRS)/$*/" "$@/"
 # Corrige permisos
-# Los homes son solo accesibles para cada pirata
-	chmod 700 /home/$*
 # Los mails también
 	find "$@" -type f -print0 | xargs -0 chmod 600
 	find "$@" -type d -print0 | xargs -0 chmod 700
