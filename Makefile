@@ -65,7 +65,7 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
+mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf /etc/nginx/sites/autoconfig.$(HOSTNAME).conf
 
 # Instala el servidor de correo con soporte para filtros
 # Va aparte porque modifica la infraestructura de postfix+dovecot,
