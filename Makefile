@@ -65,7 +65,7 @@ upgrade: PHONY /usr/bin/etckeeper
 	apt-get upgrade $(APT_FLAGS)
 
 ## Instala el servidor de correo
-mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf
+mail-server: PHONY /etc/dovecot/dovecot.conf $(POSTFIX_CHECKS_FILES) /etc/postfix/virtual /etc/postfix-policyd-spf-python/policyd-spf.conf /etc/nginx/sites/autoconfig.$(HOSTNAME).conf
 
 # Instala el servidor de correo con soporte para filtros
 # Va aparte porque modifica la infraestructura de postfix+dovecot,
@@ -507,6 +507,18 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	cat etc/sudoers.d/roundcube >$@
 	chmod +x /usr/share/doc/roundcube-plugins/examples/chpass-wrapper.py
 	cat etc/roundcube/passwd.inc.php >>/etc/roundcube/main.inc.php
+
+# Autoconfiguración de Thunderbird
+/etc/nginx/sites/autoconfig.$(HOSTNAME).conf:
+	echo "server {\n  server_name autoconfig.$(HOSTNAME);\n}" >$@
+
+/srv/http/autoconfig.$(HOSTNAME)/mail/config-v1.1.xml: %/config-v1.1.xml: /etc/nginx/sites/autoconfig.$(HOSTNAME).conf
+	install --directory --mode 750 --group http --owner nobody $*
+	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
+	    -e "s/{{GROUP}}/$(GROUP)/g" \
+			config-v1.1.xml >$@
+	chown nobody:http $@
+	chmod 640 $@
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
