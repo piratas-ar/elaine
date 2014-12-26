@@ -508,6 +508,18 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	chmod +x /usr/share/doc/roundcube-plugins/examples/chpass-wrapper.py
 	cat etc/roundcube/passwd.inc.php >>/etc/roundcube/main.inc.php
 
+# Autoconfiguración de Thunderbird
+/etc/nginx/sites/autoconfig.$(HOSTNAME).conf:
+	echo "server {\n  server_name autoconfig.$(HOSTNAME);\n}" >$@
+
+/srv/http/autoconfig.$(HOSTNAME)/mail/config-v1.1.xml: %/config-v1.1.xml: /etc/nginx/sites/autoconfig.$(HOSTNAME).conf
+	install --directory --mode 750 --group http --owner nobody $*
+	sed -e "s/{{HOSTNAME}}/$(HOSTNAME)/g" \
+	    -e "s/{{GROUP}}/$(GROUP)/g" \
+			config-v1.1.xml >$@
+	chown nobody:http $@
+	chmod 640 $@
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
