@@ -1,3 +1,6 @@
+# Asegurarse que usemos bash para todo
+SHELL=/bin/bash
+
 # La contraseña por defecto para nuevos piratas
 PASSWORD=
 GROUP=piratas
