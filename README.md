@@ -32,13 +32,21 @@ Habilitar el `ssh-agent` y añadir la llave local.  Conectarse al
 servidor normalmente, redirigiendo el puerto y para ingresar como root.
 
 ```bash
-eval $(ssh-agent)
-ssh-add
-ssh -fAN -L 2222:localhost:22 pirata@elaine
-ssh -Ap 2222 root@localhost
+local $ eval $(ssh-agent)
+local $ ssh-add
+local $ ssh -A pirata@elaine
+elaine $ ssh -A root@localhost
 ```
 
-Con esto no es necesario tener contraseña o sudo en elaine.
+Sin ssh-agent:
+
+```bash
+local $ ssh -fN -L 2222:localhost:22 pirata@elaine
+local $ ssh -p 2222 root@localhost
+```
+
+Con cualquiera de los dos métodos no es necesario tener contraseña, sudo
+o llaves privadas en elaine.
 
 ## TODO
 
