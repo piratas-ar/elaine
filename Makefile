@@ -20,14 +20,6 @@ BUNDLER=/usr/local/bin/bundle
 # Paquete de gnutls
 GNUTLS=gnutls-bin
 
-# Dónde están los backups
-BACKUP_DIR=/home/fauno/threepwood
-
-# Migración del correo
-MAILDIRS=$(BACKUP_DIR)/var/vmail/partidopirata.com.ar
-MAILUSERS=$(shell ls "$(MAILDIRS)")
-MAILHOMES=$(patsubst %,/home/%/Maildir,$(MAILUSERS))
-
 # Mailman
 MAILMAN_DIR=/var/lib/mailman
 MAILMAN_HOST=asambleas.partidopirata.com.ar
@@ -38,10 +30,6 @@ POSTFIX_PROXY=proxy:
 # Chequeos antispam
 POSTFIX_CHECKS=header body smtp_header
 POSTFIX_CHECKS_FILES=$(patsubst %,/etc/postfix/%_checks,$(POSTFIX_CHECKS))
-
-# Sitios
-OLD_SITES=$(shell find $(BACKUP_DIR)/etc/nginx/sites -name '*.conf')
-SITES=$(patsubst $(BACKUP_DIR)%,%,$(OLD_SITES))
 
 # Plugins de collectd
 COLLECTD_PLUGINS=syslog cpu entropy interface load memory network uptime users
@@ -78,18 +66,13 @@ mail-server-filters: PHONY mail-server $(SIEVE_FILES)
 		-i /etc/dovecot/conf.d/10-master.conf
 	postconf -e mailbox_transport='lmtp:unix:private/dovecot-lmtp'
 
-## Migra todos los correos
-migrate-all-the-emails: PHONY $(MAILHOMES)
-
-## Instala y migra mailman
-mailman: PHONY /var/lib/mailman/archives/public/general /etc/default/fcgiwrap
+## Instala mailman
+mailman: PHONY /etc/default/fcgiwrap
 	# los archivos en public son symlinks a private
 	chmod o+x /var/lib/mailman/archives/private
 	newaliases
 	service postfix restart
 	service mailman restart
-
-sitios: $(SITES) /srv/http
 
 # Instala el webmail
 webmail: /etc/roundcube/main.inc.php /etc/sudoers.d/roundcube
@@ -370,17 +353,6 @@ $(SIEVE_FILES):
 /etc/skel/Maildir:
 	install -dm 700 $@
 
-# Migra los correos de cada usuario creándoles cuentas en el sistema con
-# una contraseña por defecto
-$(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir /home/%
-# Migra los correos
-	rsync -av "$(MAILDIRS)/$*/" "$@/"
-# Corrige permisos
-# Los mails también
-	find "$@" -type f -print0 | xargs -0 chmod 600
-	find "$@" -type d -print0 | xargs -0 chmod 700
-	chown -R $*:$(GROUP) "$@"
-
 # Prosody
 /etc/prosody/prosody.cfg.lua:
 	apt-get install $(APT_FLAGS) prosody
@@ -430,30 +402,6 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir /home/%
 	grep -qw "^$(MAILMAN_HOST)" /etc/postfix/transport || echo "$(MAILMAN_HOST)  mailman:" >>/etc/postfix/transport
 	postmap /etc/postfix/transport
 
-# Migrar el archivo de mailman
-/var/lib/mailman/archives/public/general: /var/lib/mailman
-	@echo "Testeando que MAILMAN_DIR ni BACKUP_DIR estén vacíos"
-	test -n "$(MAILMAN_DIR)"
-	test -n "$(BACKUP_DIR)"
-	rsync -av "$(BACKUP_DIR)/$(MAILMAN_DIR)/" "$(MAILMAN_DIR)"
-	chown -R list:list "$(MAILMAN_DIR)"
-
-# Migrar los sitios
-/srv/http:
-	@echo "Testeando que BACKUP_DIR no esté vacío"
-	test -n "$(BACKUP_DIR)"
-	getent group http || groupadd --system http
-	getent passwd http || \
-	useradd --gid http --system \
-	        --no-create-home \
-					--shell /bin/false \
-					--home-dir /srv/http \
-					http
-	install -dm2750 --owner http --group http /srv/http
-	rsync -avHAX "$(BACKUP_DIR)/srv/http/" "/srv/http/"
-	# por ahora no migramos los usuarios de cada sitio
-	chown -R http:http /srv/http
-
 # Nginx-Passenger para ubuntu
 /etc/apt/sources.list.d/passenger.list:
 	echo "deb https://oss-binaries.phusionpassenger.com/apt/passenger $(UBUNTU) main" >$@
@@ -468,9 +416,6 @@ $(MAILHOMES): /home/%/Maildir: /etc/skel/Maildir /home/%
 	find /etc/php5 -type f -print0 | \
 		xargs -0 sed -i "s/www-data/http/g"
 	
-$(SITES): /etc/nginx/sites
-	test -f $@ || install -Dm640 $(BACKUP_DIR)$@ $@
-
 /etc/default/fcgiwrap:
 	echo "FCGI_CHILDREN=1" >$@
 	echo "FCGI_SOCKET=/var/run/fcgiwrap.sock" >>$@
