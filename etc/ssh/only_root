@@ -1,12 +1,12 @@
 # Solo permitir login por root@localhost a usuarios en el grupo wheel
 Match Host localhost
   PermitRootLogin yes
-  AllowGroups wheel
+  AllowGroups {{SUDO_GROUP}}
 
 Match Address 127.0.0.1
   PermitRootLogin yes
-  AllowGroups wheel
+  AllowGroups {{SUDO_GROUP}}
 
 Match Address ::1
   PermitRootLogin yes
-  AllowGroups wheel
+  AllowGroups {{SUDO_GROUP}}

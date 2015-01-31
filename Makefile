@@ -164,7 +164,7 @@ $(BUNDLER):
 # ssh root@$(HOSTNAME)
 /root/.ssh/authorized_keys: /etc/ssh/sshd_config
 	grep -q "^Match Host localhost$$" $< || \
-		cat etc/ssh/only_root >>$<
+		sed "s/{{SUDO_GROUP}}/$(SUDO_GROUP)/g" etc/ssh/only_root >>$<
 	install -d -o root -g root -m 700 /root/.ssh
 	cat ssh/*.pub >$@
 	chmod 600 $@
