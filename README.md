@@ -46,7 +46,8 @@ local $ ssh -p 2222 root@localhost
 ```
 
 Con cualquiera de los dos métodos no es necesario tener contraseña, sudo
-o llaves privadas en elaine.
+o llaves privadas en elaine.  Aunque sí hay que estar en un grupo
+administrativo (sudo, wheel o cualquier otra cosa)
 
 ## TODO
 
