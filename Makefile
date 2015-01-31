@@ -198,13 +198,14 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	apt-get install $(APT_FLAGS) $(GNUTLS)
 	cd /etc && git clone https://github.com/fauno/ssl ssl~
 	cd /etc && mv ssl ssl~~ && mv ssl~ ssl
-	cd /etc && cp ssl~~/certs/* ssl/certs/ || true
-	cd /etc && cp ssl~~/private/* ssl/private/ || true
+	cd /etc && cp -a ssl~~/certs/* ssl/certs/ || true
+	cd /etc && cp -a ssl~~/private/* ssl/private/ || true
 	rm -rf /etc/ssl~~
 	chmod 755 /etc/ssl
 	cd /etc/ssl && make ssl-dirs
 	cd /etc/ssl && make create-groups GROUP=personas
 	cd /etc/ssl && make ssl-dh-params
+	update-ca-certificates
 
 # Genera el certificado auto-firmado para este host
 /etc/ssl/certs/$(HOSTNAME).crt: /etc/ssl/Makefile
