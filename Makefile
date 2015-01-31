@@ -149,12 +149,13 @@ $(BUNDLER):
 	cd /root/Repos && test -d duraskel/.git || git clone --branch=develop https://github.com/fauno/duraskel
 	cd /root/Repos/duraskel && make install
 
-/etc/ssh/sshd_config:
+/etc/ssh/sshd_config: PHONY
 	apt-get install $(APT_FLAGS) openssh-server openssh-client
 	sed "s/^#\?\(PermitRootLogin\).*/\1 no/" -i $@
+	sed "s/^#\?\(PermitEmptyPasswords\).*/\1 no/" -i $@
 	sed "s/^#\?\(PasswordAuthentication\).*/\1 no/" -i $@
 	sed "s/^#\?\(AllowAgentForwarding\).*/\1 yes/" -i $@
-	sed "s/^#\?\(AllowGroups\).*/\1 users/" -i $@
+	grep -q "AllowGroups $(GROUP)" $@ || echo "AllowGroups $(GROUP)" >>$@
 
 # Habilita a los usuarios a loguearse como root forwardeando su llave
 # privada con ssh-agent:
@@ -162,7 +163,7 @@ $(BUNDLER):
 # ssh $(HOSTNAME)
 # ssh root@$(HOSTNAME)
 /root/.ssh/authorized_keys: /etc/ssh/sshd_config
-	grep -q "^Match Host localhost$$" $< && \
+	grep -q "^Match Host localhost$$" $< || \
 		cat etc/ssh/only_root >>$<
 	install -d -o root -g root -m 700 /root/.ssh
 	cat ssh/*.pub >$@
