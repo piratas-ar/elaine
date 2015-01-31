@@ -33,6 +33,9 @@ POSTFIX_CHECKS_FILES=$(patsubst %,/etc/postfix/%_checks,$(POSTFIX_CHECKS))
 
 # Plugins de collectd
 COLLECTD_PLUGINS=syslog cpu entropy interface load memory network uptime users
+# La dirección IP y puerto del maestro de collectd, para el plugin
+# network
+COLLECTD_MASTER='"2001:1291:200:83ab:249a:2ef4:9cad:1d9e" "25826"'
 
 # Filtros de mail
 SIEVE_FILES=$(wildcard etc/dovecot/sieve/*.sieve) /etc/dovecot/conf.d/90-sieve.conf
@@ -412,9 +415,8 @@ $(SIEVE_FILES):
 	for plugin in $(COLLECTD_PLUGINS); do \
 		echo "LoadPlugin $$plugin" >>$@ ;\
 	done
-	echo '<Plugin network>' >>$@
-	echo 'Server "2001:1291:200:83ab:249a:2ef4:9cad:1d9e" "25826"' >>$@
-	echo '</Plugin>' >>$@
+	test -n "$(COLLECTD_MASTER)" && \
+	echo '<Plugin network>Server $(COLLECTD_MASTER)</Plugin>' >>$@
 
 /etc/php5/fpm/conf.d/mcrypt.ini:
 	ln -s /etc/php5/mods-available/mcrypt.ini $@
