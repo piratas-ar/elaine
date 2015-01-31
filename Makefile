@@ -179,7 +179,8 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	@echo "Los archivos anteriores de nginx quedan en /etc/nginx~"
 	@mv /etc/nginx /etc/nginx~
 	cd /etc && git clone https://github.com/fauno/nginx-config nginx
-	rm -v /etc/nginx/sites/*.conf
+# Eliminar todos los sitios menos el pseudo sitio zz_nowww que es útil
+	rm -v /etc/nginx/sites/!(zz_nowww).conf
 # Seguridad
 	chown -R root:root /etc/nginx
 	find /etc/nginx -type d -exec chmod 750 {} \;
