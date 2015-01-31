@@ -298,24 +298,6 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 	grep -q "^policyd-spf" /etc/postfix/master.cf || \
 		cat etc/postfix/master.d/policyd-spf.cf >>/etc/postfix/master.cf
 
-# Cryptolist hace greylisting con diferentes pesos dependiendo de si la
-# conexión fue cifrada
-/usr/bin/cryptolist:
-	apt-get install $(APT_FLAGS) libdb-dev
-	mkdir -p tmp
-	git clone https://github.com/dtaht/Cryptolisting tmp
-	cd tmp && git checkout 11f2273a098c2ae1a71bf17da14b72bdbd5c3eca
-	cd tmp && autoreconf -fi
-	cd tmp && ./configure --localstatedir=/var
-	cd tmp && make
-	apt-get purge $(APT_FLAGS) libdb-dev
-	install -Dm755 tmp/cryptolist /usr/bin/cryptolist
-	rm -rf tmp
-	install -dm750 --owner nobody --group nogroup /var/lib/cryptolist
-	postconf -e smtpd_recipient_restrictions='$(shell postconf smtpd_recipient_restrictions | cut -d"=" -f2), check_policy_service unix:private/cryptolist'
-	grep -qw "^cryptolist" /etc/postfix/master.cf || \
-		cat etc/postfix/master.d/cryptolist.cf >>/etc/postfix/master.cf
-
 # Instala y configura dovecot
 #
 # La autenticación es por los usuarios del sistema.  Cada usuario del
