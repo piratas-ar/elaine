@@ -581,6 +581,14 @@ devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 1
 	echo "}" >>$@
 	nginx -t
 
+# instala y compila ruby 2.2.0
+/home/app/.rbenv: %/.rbenv:
+	sudo -u app git clone https://github.com/sstephenson/rbenv.git $@
+	sudo -u app git clone https://github.com/sstephenson/ruby-build.git $@/plugins/ruby-build
+	echo 'export PATH="$$HOME/.rbenv/bin:$$PATH"' >>$*/.bash_profile
+	echo 'eval "$$(rbenv init -)"' >> $*/.bash_profile
+	sudo -u app rbenv install 2.2.0
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
