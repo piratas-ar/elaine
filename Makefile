@@ -558,9 +558,15 @@ devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 1
 	echo "CANONICAL_HOST=consenso.partidopirata.com.ar" >>$@
 	chmod 600 $@
 	chown -R app:http $*
+
+/etc/ssl/certs/consenso.partidopirata.com.ar.crt:
+	cd /etc/ssl ; echo "consenso.partidopirata.com.ar" >>domains
+	cd /etc/ssl ; make certs/consenso.partidopirata.com.ar.crt
+	cd /etc/ssl ; chmod 640 private/consenso.partidopirata.com.ar.key
+	cd /etc/ssl ; chmod 644 certs/consenso.partidopirata.com.ar.crt
 	
 # Crea la configuración del sitio en nginx
-/etc/nginx/sites/consenso.partidopirata.com.ar.conf: /srv/http/consenso.partidopirata.com.ar/shared/.env
+/etc/nginx/sites/consenso.partidopirata.com.ar.conf: /etc/ssl/certs/consenso.partidopirata.com.ar.crt /srv/http/consenso.partidopirata.com.ar/shared/.env
 	echo "server {" >$@
 	echo "  server_name consenso.partidopirata.com.ar;" >>$@
 	echo "  include \"snippets/ssl-only.conf\";" >>$@
@@ -568,6 +574,8 @@ devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 1
 	echo >>$@
 	echo "server {" >>$@
 	echo "  server_name consenso.partidopirata.com.ar;" >>$@
+	echo "  ssl_certificate /etc/ssl/certs/consenso.partidopirata.com.ar.crt;" >>$@
+	echo "  ssl_certificate_key /etc/ssl/private/consenso.partidopirata.com.ar.key;" >>$@
 	echo "  include \"snippets/ssl.conf\";" >>$@
 	echo "  include \"snippets/capistrano.conf\";" >>$@
 	echo "}" >>$@
