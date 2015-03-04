@@ -522,7 +522,7 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 
 # Deploy de loomio	
 # Necesitamos instalar postgresql
-/var/lib/postgresql/main:
+/var/lib/postgresql/9.3/main:
 	apt-get install --yes postgresql postgresql-client postgresql-contrib
 
 # Acá van las gemas compartidas
@@ -530,7 +530,7 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	install --directory --mode 770 --owner http --group http $@
 	chmod g+s $@
 
-/home/app: /home/%: /var/lib/postgresql/main
+/home/app: /home/%: /var/lib/postgresql/9.3/main
 	getent passwd $* \
 	|| useradd --home-dir $@ \
 	           --create-home \
@@ -539,7 +539,7 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	           $*
 	cat ssh/*.pub >$@/.ssh/authorized_keys
 	chmod 700 $@
-	sudo -u postgres createuser --createdb app
+	cd $< ; sudo -u postgres createuser --createdb app
 
 # Preparar el directorio
 /srv/http/consenso.partidopirata.com.ar: /home/app
@@ -549,12 +549,15 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 # Preparar el dotenv para el deploy
 cookie_token=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 127 | head -n1)
 devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 127 | head -n1)
-/srv/http/consenso.partidopirata.com.ar/shared/.env: /srv/http/consenso.partidopirata.com.ar
+/srv/http/consenso.partidopirata.com.ar/shared/.env: %/.env: /srv/http/consenso.partidopirata.com.ar
+	install -dm700 $*
 	echo "FORCE_SSL=true" >$@
 	echo "RACK_ENV=production" >>$@
 	echo "SECRET_COOKIE_TOKEN=$(cookie_token)" >>$@
 	echo "DEVISE_SECRET=$(devise_secret)" >>$@
 	echo "CANONICAL_HOST=consenso.partidopirata.com.ar" >>$@
+	chmod 600 $@
+	chown -R app:http $*
 	
 # Crea la configuración del sitio en nginx
 /etc/nginx/sites/consenso.partidopirata.com.ar.conf: /srv/http/consenso.partidopirata.com.ar/shared/.env
