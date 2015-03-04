@@ -539,7 +539,9 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	           $*
 	cat ssh/*.pub >$@/.ssh/authorized_keys
 	chmod 700 $@
-	cd $< ; sudo -u postgres createuser --createdb app
+	sudo -iu postgres createuser --createdb app
+	sudo -iu app createdb loomio
+	sudo -iu postgresql psql -c "create extension hstore;" loomio 
 
 # Preparar el directorio
 /srv/http/consenso.partidopirata.com.ar: /home/app
@@ -556,6 +558,9 @@ devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 1
 	echo "SECRET_COOKIE_TOKEN=$(cookie_token)" >>$@
 	echo "DEVISE_SECRET=$(devise_secret)" >>$@
 	echo "CANONICAL_HOST=consenso.partidopirata.com.ar" >>$@
+	# los simpaticos de loomio creen que todos los dominios tienen dos
+	# elementos
+	echo "DEFAULT_SUBDOMAIN=consenso.partidopirata" >>$@
 	chmod 600 $@
 	chown -R app:http $*
 
@@ -576,6 +581,7 @@ devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 1
 	echo "  server_name consenso.partidopirata.com.ar;" >>$@
 	echo "  ssl_certificate /etc/ssl/certs/consenso.partidopirata.com.ar.crt;" >>$@
 	echo "  ssl_certificate_key /etc/ssl/private/consenso.partidopirata.com.ar.key;" >>$@
+	echo "  passenger_ruby /home/app/.rbenv/shims/ruby;" >>$@
 	echo "  include \"snippets/ssl.conf\";" >>$@
 	echo "  include \"snippets/capistrano.conf\";" >>$@
 	echo "}" >>$@
@@ -588,6 +594,8 @@ devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 1
 	echo 'export PATH="$$HOME/.rbenv/bin:$$PATH"' >>$*/.bash_profile
 	echo 'eval "$$(rbenv init -)"' >> $*/.bash_profile
 	sudo -iu app rbenv install 2.2.0
+	sudo -iu app rbenv global 2.2.0
+	sudo -iu app rbenv exec gem install bundler
 
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
