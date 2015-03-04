@@ -520,6 +520,56 @@ des_key=$(shell dd if=/dev/urandom bs=24 count=1 2>/dev/null| base64 -w 23 | hea
 	chown nobody:http $@
 	chmod 640 $@
 
+# Deploy de loomio	
+# Necesitamos instalar postgresql
+/var/lib/postgresql/main:
+	apt-get install --yes postgresql postgresql-client postgresql-contrib
+
+# Acá van las gemas compartidas
+/srv/http/gemas.partidopirata.com.ar:
+	install --directory --mode 770 --owner http --group http $@
+	chmod g+s $@
+
+/home/app: /home/%: /var/lib/postgresql/main
+	getent passwd $* \
+	|| useradd --home-dir $@ \
+	           --create-home \
+	           --shell /bin/bash \
+	           --gid http \
+	           $*
+	cat ssh/*.pub >$@/.ssh/authorized_keys
+	chmod 700 $@
+	sudo -u postgres createuser --createdb app
+
+# Preparar el directorio
+/srv/http/consenso.partidopirata.com.ar: /home/app
+	install --directory --mode 750 --owner app --group http $@
+	chmod g+s $@
+
+# Preparar el dotenv para el deploy
+cookie_token=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 127 | head -n1)
+devise_secret=$(shell dd if=/dev/urandom bs=128 count=1 2>/dev/null| base64 -w 127 | head -n1)
+/srv/http/consenso.partidopirata.com.ar/shared/.env: /srv/http/consenso.partidopirata.com.ar
+	echo "FORCE_SSL=true" >$@
+	echo "RACK_ENV=production" >>$@
+	echo "SECRET_COOKIE_TOKEN=$(cookie_token)" >>$@
+	echo "DEVISE_SECRET=$(devise_secret)" >>$@
+	echo "CANONICAL_HOST=consenso.partidopirata.com.ar" >>$@
+	
+# Crea la configuración del sitio en nginx
+/etc/nginx/sites/consenso.partidopirata.com.ar.conf: /srv/http/consenso.partidopirata.com.ar/shared/.env
+	echo "server {" >$@
+	echo "  server_name consenso.partidopirata.com.ar;" >>$@
+	echo "  include \"snippets/ssl-only.conf\";" >>$@
+	echo "}" >>$@
+	echo >>$@
+	echo "server {" >>$@
+	echo "  server_name consenso.partidopirata.com.ar;" >>$@
+	echo "  include \"snippets/ssl.conf\";" >>$@
+	echo "  include \"snippets/capistrano.conf\";" >>$@
+	echo "}" >>$@
+	nginx -t
+
 # Un shortcut para declarar reglas sin contraparte en el filesystem
 # Nota: cada vez que se usa uno, todas las reglas que llaman a la regla
 # phony se ejecutan siempre
