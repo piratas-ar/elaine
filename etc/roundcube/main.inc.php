@@ -28,8 +28,9 @@ $rcmail_config['use_https'] = true;
 $rcmail_config['http_received_header'] = true;
 $rcmail_config['http_received_header_encrypt'] = true;
 
-# Dejar vacío a menos que empecemos a alojar múltiples dominios
-$rcmail_config['username_domain'] = '';
+# Dominio
+$rcmail_config['username_domain'] = '%d';
+$rcmail_config['mail_domain'] = '%d';
 
 # User Agent
 $rcmail_config['useragent'] = 'Partido Pirata/'.RCMAIL_VERSION;
