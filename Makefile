@@ -294,7 +294,7 @@ $(POSTFIX_CHECKS_FILES): /etc/postfix/%: /etc/postfix/main.cf
 
 # Inicia la base de datos de direcciones virtuales
 /etc/postfix/virtual: /etc/postfix/main.cf
-	touch >>$@
+	touch $@
 	postmap $@
 	postconf -e virtual_alias_maps='hash:$@'
 
