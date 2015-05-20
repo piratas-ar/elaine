@@ -171,7 +171,7 @@ $(BUNDLER):
 
 # Crea los usuarios y les da acceso
 $(USERS): /etc/skel/.ssh/authorized_keys
-	getent group users || groupadd --system $(GROUP)
+	getent group $(GROUP) || groupadd --system $(GROUP)
 	getent passwd $@ || useradd -m -g $(GROUP) -G $(SUDO_GROUP) $@
 	getent passwd $@ && gpasswd -a $@ $(SUDO_GROUP)
 	getent passwd $@ && chsh --shell /bin/bash $@
