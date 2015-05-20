@@ -86,6 +86,23 @@ webmail: /etc/roundcube/main.inc.php /etc/sudoers.d/roundcube
 # Instala jabber
 jabber: /etc/prosody/conf.d/$(HOSTNAME).cfg.lua /etc/prosody/$(GROUP).txt
 
+# Arregla las vulnerabilidades encontradas por https://weakdh.org/
+weakdh:
+	cd /etc/nginx ; git pull
+# Asegurarse que tenga los cambios que queremos
+	grep -q ssl_dhparam /etc/nginx/nginx.conf
+# Seguridad
+	chown -R root:root /etc/nginx
+	find /etc/nginx -type d -exec chmod 750 {} \;
+	find /etc/nginx -type f -exec chmod 640 {} \;
+# Dovecot
+	cat etc/dovecot/conf.d/10-ssl.conf >/etc/dovecot/conf.d/10-ssl.conf
+# Postfix
+	postconf -e smtpd_tls_exclude_ciphers='aNULL, MD5, DES, 3DES, DES-CBC3-SHA, RC4-SHA, AES256-SHA, AES128-SHA, eNULL, EXPORT, RC4, PSK, aECDH, EDH-DSS-DES-CBC3-SHA, EDH-RSA-DES-CDC3-SHA, KRB5-DE5, CBC3-SHA'
+# Reiniciar todo
+	service postfix reload
+	service nginx reload
+	service dovecot restart
 # ---
 
 # Reglas por archivo
@@ -269,7 +286,7 @@ $(USERS): /etc/skel/.ssh/authorized_keys
 	postconf -e smtpd_tls_mandatory_ciphers='high'
 	postconf -e smtpd_tls_ciphers='medium'
 ## Excluir ciphers inseguros
-	postconf -e smtpd_tls_exclude_ciphers='aNULL, MD5, DES, 3DES, DES-CBC3-SHA, RC4-SHA, AES256-SHA, AES128-SHA'
+	postconf -e smtpd_tls_exclude_ciphers='aNULL, MD5, DES, 3DES, DES-CBC3-SHA, RC4-SHA, AES256-SHA, AES128-SHA, eNULL, EXPORT, RC4, PSK, aECDH, EDH-DSS-DES-CBC3-SHA, EDH-RSA-DES-CDC3-SHA, KRB5-DE5, CBC3-SHA'
 	postconf -e smtpd_tls_mandatory_protocols='TLSv1'
 	postconf -e smtp_tls_ciphers='$$smtpd_tls_ciphers'
 	postconf -e smtp_tls_mandatory_ciphers='$$smtpd_tls_mandatory_ciphers'
