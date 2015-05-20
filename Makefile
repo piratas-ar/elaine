@@ -96,7 +96,7 @@ weakdh:
 	find /etc/nginx -type d -exec chmod 750 {} \;
 	find /etc/nginx -type f -exec chmod 640 {} \;
 # Dovecot
-	cat etc/dovecot/conf.d/10-ssl.conf >/etc/dovecot/conf.d/10-ssl.conf
+	sed "s/{{HOSTNAME}}/$(HOSTNAME)/g" etc/dovecot/conf.d/10-ssl.conf >/etc/dovecot/conf.d/10-ssl.conf
 # Postfix
 	postconf -e smtpd_tls_exclude_ciphers='aNULL, MD5, DES, 3DES, DES-CBC3-SHA, RC4-SHA, AES256-SHA, AES128-SHA, eNULL, EXPORT, RC4, PSK, aECDH, EDH-DSS-DES-CBC3-SHA, EDH-RSA-DES-CDC3-SHA, KRB5-DE5, CBC3-SHA'
 # Reiniciar todo
